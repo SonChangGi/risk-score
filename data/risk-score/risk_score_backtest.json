@@ -1,0 +1,2563 @@
+{
+  "primaryMode": "event",
+  "cooldownDays": 5,
+  "horizonDays": 5,
+  "rules": [
+    {
+      "id": "oh_ge_4",
+      "label": "OH >= 4",
+      "description": "OH model high-risk setup"
+    },
+    {
+      "id": "oh_eq_5",
+      "label": "OH = 5",
+      "description": "OH model extreme overheat"
+    },
+    {
+      "id": "rf_ge_4",
+      "label": "RF >= 4",
+      "description": "RF model high-risk rebound failure"
+    },
+    {
+      "id": "rf_eq_5",
+      "label": "RF = 5",
+      "description": "RF model strong lower-high warning"
+    },
+    {
+      "id": "setup_ge_4",
+      "label": "OH >= 4 OR RF >= 4",
+      "description": "Either top-risk setup is active"
+    },
+    {
+      "id": "red_zone",
+      "label": "OH = 5 OR RF = 5",
+      "description": "Either model is in red-zone"
+    },
+    {
+      "id": "confirmed_top_risk",
+      "label": "confirmed_top_risk",
+      "description": "Setup confirmed by price/VIX rollover"
+    },
+    {
+      "id": "rsi14_gt_70",
+      "label": "RSI14 > 70",
+      "description": "Single-indicator overbought baseline"
+    },
+    {
+      "id": "rsi5_gt_70",
+      "label": "RSI5 > 70",
+      "description": "Short-term RSI baseline"
+    },
+    {
+      "id": "z20_gt_1_5",
+      "label": "z20 > 1.5",
+      "description": "20D z-score baseline"
+    },
+    {
+      "id": "gap20_gt_4",
+      "label": "gap20 > 4%",
+      "description": "20D moving-average gap baseline"
+    },
+    {
+      "id": "roc20_gt_10",
+      "label": "ROC20 > 10%",
+      "description": "20D momentum baseline"
+    },
+    {
+      "id": "rollover_after_setup",
+      "label": "C < MA5 after OH/RF setup",
+      "description": "Price rollover after recent setup"
+    },
+    {
+      "id": "vix_confirmation_simple",
+      "label": "VIX > VIX_MA5 and delta VIX > 0",
+      "description": "VIX confirmation baseline"
+    }
+  ],
+  "periods": {
+    "full": {
+      "label": "Full period",
+      "start": null,
+      "end": "2026-06-26",
+      "sampleCount": 5356,
+      "baseRates": {
+        "downsideHitRate": 0.12882748319641524,
+        "strictTopHitRate": 0.08607169529499627
+      },
+      "ruleStats": {
+        "oh_ge_4": {
+          "label": "OH >= 4",
+          "daily": {
+            "signalCount": 677,
+            "eventCount": 230,
+            "evaluatedCount": 676,
+            "downsideHitRate": 0.1390532544378698,
+            "strictTopHitRate": 0.09171597633136094,
+            "downsideHitRateLift": 1.079375696767001,
+            "strictTopHitRateLift": 1.0655765059235776,
+            "downsideHitRateDelta": 0.010225771241454573,
+            "avgFwdRet5": -0.003174293973947031,
+            "medianFwdRet5": 0.0007699436737019782,
+            "avgFwdMin5": -0.021902437893395254,
+            "avgFwdMax5": 0.016699740703682436,
+            "maxAdverseContinuation": 0.13094684430826464
+          },
+          "event": {
+            "signalCount": 677,
+            "eventCount": 230,
+            "evaluatedCount": 230,
+            "downsideHitRate": 0.1608695652173913,
+            "strictTopHitRate": 0.11739130434782609,
+            "downsideHitRateLift": 1.2487208569628228,
+            "strictTopHitRateLift": 1.363878147694049,
+            "downsideHitRateDelta": 0.032042082020976054,
+            "avgFwdRet5": -0.0018807749274064325,
+            "medianFwdRet5": 0.0018178528774474012,
+            "avgFwdMin5": -0.02184765986861664,
+            "avgFwdMax5": 0.016621430876037808,
+            "maxAdverseContinuation": 0.12272158952460477
+          }
+        },
+        "oh_eq_5": {
+          "label": "OH = 5",
+          "daily": {
+            "signalCount": 245,
+            "eventCount": 102,
+            "evaluatedCount": 244,
+            "downsideHitRate": 0.20081967213114754,
+            "strictTopHitRate": 0.11885245901639344,
+            "downsideHitRateLift": 1.5588263245426466,
+            "strictTopHitRateLift": 1.3808541659258204,
+            "downsideHitRateDelta": 0.0719921889347323,
+            "avgFwdRet5": -0.0077446601924119575,
+            "medianFwdRet5": -0.001218104305874046,
+            "avgFwdMin5": -0.027602515617598026,
+            "avgFwdMax5": 0.016900064901910112,
+            "maxAdverseContinuation": 0.12272158952460477
+          },
+          "event": {
+            "signalCount": 245,
+            "eventCount": 102,
+            "evaluatedCount": 102,
+            "downsideHitRate": 0.21568627450980393,
+            "strictTopHitRate": 0.13725490196078433,
+            "downsideHitRateLift": 1.6742256322818982,
+            "strictTopHitRateLift": 1.5946578197439498,
+            "downsideHitRateDelta": 0.0868587913133887,
+            "avgFwdRet5": -0.0012778266367171151,
+            "medianFwdRet5": 0.0045545619846117935,
+            "avgFwdMin5": -0.025117850297107794,
+            "avgFwdMax5": 0.020022191162227542,
+            "maxAdverseContinuation": 0.12272158952460477
+          }
+        },
+        "rf_ge_4": {
+          "label": "RF >= 4",
+          "daily": {
+            "signalCount": 1463,
+            "eventCount": 398,
+            "evaluatedCount": 1460,
+            "downsideHitRate": 0.18082191780821918,
+            "strictTopHitRate": 0.12465753424657534,
+            "downsideHitRateLift": 1.4035973793924956,
+            "strictTopHitRateLift": 1.4482988143701898,
+            "downsideHitRateDelta": 0.05199443461180395,
+            "avgFwdRet5": 0.005403628689997526,
+            "medianFwdRet5": 0.006430528768850308,
+            "avgFwdMin5": -0.020432886790287836,
+            "avgFwdMax5": 0.026027634694982628,
+            "maxAdverseContinuation": 0.1655799550777417
+          },
+          "event": {
+            "signalCount": 1463,
+            "eventCount": 398,
+            "evaluatedCount": 398,
+            "downsideHitRate": 0.18341708542713567,
+            "strictTopHitRate": 0.1306532663316583,
+            "downsideHitRateLift": 1.4237418978952734,
+            "strictTopHitRateLift": 1.5179585563391798,
+            "downsideHitRateDelta": 0.05458960223072043,
+            "avgFwdRet5": 0.004855901551671138,
+            "medianFwdRet5": 0.007277408607073599,
+            "avgFwdMin5": -0.021325566032792693,
+            "avgFwdMax5": 0.02517993919942871,
+            "maxAdverseContinuation": 0.1591004693131861
+          }
+        },
+        "rf_eq_5": {
+          "label": "RF = 5",
+          "daily": {
+            "signalCount": 341,
+            "eventCount": 121,
+            "evaluatedCount": 340,
+            "downsideHitRate": 0.2,
+            "strictTopHitRate": 0.1323529411764706,
+            "downsideHitRateLift": 1.552463768115942,
+            "strictTopHitRateLift": 1.5377057547530943,
+            "downsideHitRateDelta": 0.07117251680358477,
+            "avgFwdRet5": 0.006925965919358227,
+            "medianFwdRet5": 0.007838562607667354,
+            "avgFwdMin5": -0.021302806086439842,
+            "avgFwdMax5": 0.027723122697684975,
+            "maxAdverseContinuation": 0.1655799550777417
+          },
+          "event": {
+            "signalCount": 341,
+            "eventCount": 121,
+            "evaluatedCount": 121,
+            "downsideHitRate": 0.19834710743801653,
+            "strictTopHitRate": 0.12396694214876033,
+            "downsideHitRateLift": 1.5396334890406036,
+            "strictTopHitRateLift": 1.4402753625786557,
+            "downsideHitRateDelta": 0.0695196242416013,
+            "avgFwdRet5": 0.004981373635780229,
+            "medianFwdRet5": 0.008074047922390859,
+            "avgFwdMin5": -0.02266705909367072,
+            "avgFwdMax5": 0.026387634900850228,
+            "maxAdverseContinuation": 0.1364134050338175
+          }
+        },
+        "setup_ge_4": {
+          "label": "OH >= 4 OR RF >= 4",
+          "daily": {
+            "signalCount": 2121,
+            "eventCount": 566,
+            "evaluatedCount": 2117,
+            "downsideHitRate": 0.16532829475673122,
+            "strictTopHitRate": 0.11195087387812942,
+            "downsideHitRateLift": 1.2833309372710904,
+            "strictTopHitRateLift": 1.3006700227576165,
+            "downsideHitRateDelta": 0.03650081156031598,
+            "avgFwdRet5": 0.002943694633805968,
+            "medianFwdRet5": 0.003929332254456908,
+            "avgFwdMin5": -0.02070639232290972,
+            "avgFwdMax5": 0.023213765984995735,
+            "maxAdverseContinuation": 0.1655799550777417
+          },
+          "event": {
+            "signalCount": 2121,
+            "eventCount": 566,
+            "evaluatedCount": 566,
+            "downsideHitRate": 0.17137809187279152,
+            "strictTopHitRate": 0.1254416961130742,
+            "downsideHitRateLift": 1.33029139140677,
+            "strictTopHitRateLift": 1.4574093804373653,
+            "downsideHitRateDelta": 0.04255060867637628,
+            "avgFwdRet5": 0.0021742071238416267,
+            "medianFwdRet5": 0.00476968586871962,
+            "avgFwdMin5": -0.022079456470799515,
+            "avgFwdMax5": 0.021516764998732237,
+            "maxAdverseContinuation": 0.15509492514619327
+          }
+        },
+        "red_zone": {
+          "label": "OH = 5 OR RF = 5",
+          "daily": {
+            "signalCount": 586,
+            "eventCount": 219,
+            "evaluatedCount": 584,
+            "downsideHitRate": 0.20034246575342465,
+            "strictTopHitRate": 0.1267123287671233,
+            "downsideHitRateLift": 1.5551220964860035,
+            "strictTopHitRateLift": 1.4721718717499184,
+            "downsideHitRateDelta": 0.07151498255700942,
+            "avgFwdRet5": 0.0007964577493720542,
+            "medianFwdRet5": 0.0016028451196193894,
+            "avgFwdMin5": -0.023934876506992234,
+            "avgFwdMax5": 0.02320116019397082,
+            "maxAdverseContinuation": 0.1655799550777417
+          },
+          "event": {
+            "signalCount": 586,
+            "eventCount": 219,
+            "evaluatedCount": 219,
+            "downsideHitRate": 0.2100456621004566,
+            "strictTopHitRate": 0.1324200913242009,
+            "downsideHitRateLift": 1.6304414003044139,
+            "strictTopHitRateLift": 1.5384859200269416,
+            "downsideHitRateDelta": 0.08121817890404137,
+            "avgFwdRet5": 0.0012624316485972422,
+            "medianFwdRet5": 0.00415891222606235,
+            "avgFwdMin5": -0.024373854628788643,
+            "avgFwdMax5": 0.0226743791355175,
+            "maxAdverseContinuation": 0.1364134050338175
+          }
+        },
+        "confirmed_top_risk": {
+          "label": "confirmed_top_risk",
+          "daily": {
+            "signalCount": 1897,
+            "eventCount": 539,
+            "evaluatedCount": 1892,
+            "downsideHitRate": 0.16173361522198731,
+            "strictTopHitRate": 0.10729386892177589,
+            "downsideHitRateLift": 1.2554278885927015,
+            "strictTopHitRateLift": 1.2465639087744722,
+            "downsideHitRateDelta": 0.03290613202557208,
+            "avgFwdRet5": 0.006289872862361207,
+            "medianFwdRet5": 0.006701862731258723,
+            "avgFwdMin5": -0.01934199238609192,
+            "avgFwdMax5": 0.02638152164187117,
+            "maxAdverseContinuation": 0.17252203217965723
+          },
+          "event": {
+            "signalCount": 1897,
+            "eventCount": 539,
+            "evaluatedCount": 539,
+            "downsideHitRate": 0.15398886827458255,
+            "strictTopHitRate": 0.10946196660482375,
+            "downsideHitRateLift": 1.1953106934473394,
+            "strictTopHitRateLift": 1.271753347365371,
+            "downsideHitRateDelta": 0.025161385078167314,
+            "avgFwdRet5": 0.004708167847424451,
+            "medianFwdRet5": 0.005867236713437807,
+            "avgFwdMin5": -0.019505016492433948,
+            "avgFwdMax5": 0.024444059728555723,
+            "maxAdverseContinuation": 0.1655799550777417
+          }
+        },
+        "rsi14_gt_70": {
+          "label": "RSI14 > 70",
+          "daily": {
+            "signalCount": 314,
+            "eventCount": 96,
+            "evaluatedCount": 314,
+            "downsideHitRate": 0.10828025477707007,
+            "strictTopHitRate": 0.0732484076433121,
+            "downsideHitRateLift": 0.8405058617188221,
+            "strictTopHitRateLift": 0.8510162068060295,
+            "downsideHitRateDelta": -0.02054722841934517,
+            "avgFwdRet5": -0.00410893467471475,
+            "medianFwdRet5": -0.0005480055514018312,
+            "avgFwdMin5": -0.020306843844926675,
+            "avgFwdMax5": 0.015947164795379106,
+            "maxAdverseContinuation": 0.1467897397732818
+          },
+          "event": {
+            "signalCount": 314,
+            "eventCount": 96,
+            "evaluatedCount": 96,
+            "downsideHitRate": 0.09375,
+            "strictTopHitRate": 0.052083333333333336,
+            "downsideHitRateLift": 0.7277173913043478,
+            "strictTopHitRateLift": 0.6051156905278381,
+            "downsideHitRateDelta": -0.03507748319641524,
+            "avgFwdRet5": -0.006930225661122557,
+            "medianFwdRet5": 0.0006160523425379205,
+            "avgFwdMin5": -0.021571263426764173,
+            "avgFwdMax5": 0.01416695288761978,
+            "maxAdverseContinuation": 0.11697156153554089
+          }
+        },
+        "rsi5_gt_70": {
+          "label": "RSI5 > 70",
+          "daily": {
+            "signalCount": 1214,
+            "eventCount": 370,
+            "evaluatedCount": 1213,
+            "downsideHitRate": 0.11541632316570487,
+            "strictTopHitRate": 0.07914262159934048,
+            "downsideHitRateLift": 0.8958982998195874,
+            "strictTopHitRateLift": 0.9194964886899514,
+            "downsideHitRateDelta": -0.01341116003071037,
+            "avgFwdRet5": -0.0019271842738165896,
+            "medianFwdRet5": 0.0016852580049755428,
+            "avgFwdMin5": -0.01940544293001091,
+            "avgFwdMax5": 0.015601721737377346,
+            "maxAdverseContinuation": 0.1467897397732818
+          },
+          "event": {
+            "signalCount": 1214,
+            "eventCount": 370,
+            "evaluatedCount": 370,
+            "downsideHitRate": 0.13783783783783785,
+            "strictTopHitRate": 0.08648648648648649,
+            "downsideHitRateLift": 1.0699412455934196,
+            "strictTopHitRateLift": 1.0048191358386587,
+            "downsideHitRateDelta": 0.009010354641422608,
+            "avgFwdRet5": -0.0013576404379852902,
+            "medianFwdRet5": 0.0028738049013017353,
+            "avgFwdMin5": -0.01909041562321913,
+            "avgFwdMax5": 0.016454076137050584,
+            "maxAdverseContinuation": 0.1467897397732818
+          }
+        },
+        "z20_gt_1_5": {
+          "label": "z20 > 1.5",
+          "daily": {
+            "signalCount": 959,
+            "eventCount": 299,
+            "evaluatedCount": 958,
+            "downsideHitRate": 0.12839248434237996,
+            "strictTopHitRate": 0.08455114822546973,
+            "downsideHitRateLift": 0.9966234001996914,
+            "strictTopHitRateLift": 0.9823339477128327,
+            "downsideHitRateDelta": -0.00043499885403527894,
+            "avgFwdRet5": -0.002787887445643818,
+            "medianFwdRet5": 0.0013604355812998348,
+            "avgFwdMin5": -0.02073176727095337,
+            "avgFwdMax5": 0.015506957775163257,
+            "maxAdverseContinuation": 0.12416449714766076
+          },
+          "event": {
+            "signalCount": 959,
+            "eventCount": 299,
+            "evaluatedCount": 299,
+            "downsideHitRate": 0.13712374581939799,
+            "strictTopHitRate": 0.09364548494983277,
+            "downsideHitRateLift": 1.0643982356647763,
+            "strictTopHitRateLift": 1.0879939639724605,
+            "downsideHitRateDelta": 0.008296262622982747,
+            "avgFwdRet5": -0.0013985951288909345,
+            "medianFwdRet5": 0.002869507220300438,
+            "avgFwdMin5": -0.019974671946850212,
+            "avgFwdMax5": 0.016674841938629344,
+            "maxAdverseContinuation": 0.12416449714766076
+          }
+        },
+        "gap20_gt_4": {
+          "label": "gap20 > 4%",
+          "daily": {
+            "signalCount": 1089,
+            "eventCount": 282,
+            "evaluatedCount": 1087,
+            "downsideHitRate": 0.140754369825207,
+            "strictTopHitRate": 0.09659613615455381,
+            "downsideHitRateLift": 1.0925802967881286,
+            "strictTopHitRateLift": 1.1222752825244906,
+            "downsideHitRateDelta": 0.011926886628791766,
+            "avgFwdRet5": 0.0005505781553906177,
+            "medianFwdRet5": 0.0025324260641694796,
+            "avgFwdMin5": -0.021251040657401177,
+            "avgFwdMax5": 0.019734163838673754,
+            "maxAdverseContinuation": 0.14871739275468698
+          },
+          "event": {
+            "signalCount": 1089,
+            "eventCount": 282,
+            "evaluatedCount": 282,
+            "downsideHitRate": 0.12411347517730496,
+            "strictTopHitRate": 0.09929078014184398,
+            "downsideHitRateLift": 0.9634083667386165,
+            "strictTopHitRateLift": 1.1535822525807296,
+            "downsideHitRateDelta": -0.0047140080191102746,
+            "avgFwdRet5": 0.0011174925512936122,
+            "medianFwdRet5": 0.004866890610954133,
+            "avgFwdMin5": -0.020689487881025623,
+            "avgFwdMax5": 0.01882375011736008,
+            "maxAdverseContinuation": 0.1467897397732818
+          }
+        },
+        "roc20_gt_10": {
+          "label": "ROC20 > 10%",
+          "daily": {
+            "signalCount": 634,
+            "eventCount": 171,
+            "evaluatedCount": 632,
+            "downsideHitRate": 0.15664556962025317,
+            "strictTopHitRate": 0.09968354430379747,
+            "downsideHitRateLift": 1.2159328563566318,
+            "strictTopHitRateLift": 1.158145473516571,
+            "downsideHitRateDelta": 0.02781808642383793,
+            "avgFwdRet5": 0.002803411668343356,
+            "medianFwdRet5": 0.004801515476641427,
+            "avgFwdMin5": -0.020268463272918872,
+            "avgFwdMax5": 0.023479767010546188,
+            "maxAdverseContinuation": 0.1591004693131861
+          },
+          "event": {
+            "signalCount": 634,
+            "eventCount": 171,
+            "evaluatedCount": 171,
+            "downsideHitRate": 0.16374269005847952,
+            "strictTopHitRate": 0.1111111111111111,
+            "downsideHitRateLift": 1.2710229680481395,
+            "strictTopHitRateLift": 1.2909134731260543,
+            "downsideHitRateDelta": 0.034915206862064285,
+            "avgFwdRet5": 0.003835680088576208,
+            "medianFwdRet5": 0.006944586565158284,
+            "avgFwdMin5": -0.02024495812014216,
+            "avgFwdMax5": 0.021706323645947666,
+            "maxAdverseContinuation": 0.12272158952460477
+          }
+        },
+        "rollover_after_setup": {
+          "label": "C < MA5 after OH/RF setup",
+          "daily": {
+            "signalCount": 1265,
+            "eventCount": 449,
+            "evaluatedCount": 1261,
+            "downsideHitRate": 0.1586042823156225,
+            "strictTopHitRate": 0.10309278350515463,
+            "downsideHitRateLift": 1.2311370088151798,
+            "strictTopHitRateLift": 1.1977547688798442,
+            "downsideHitRateDelta": 0.029776799119207276,
+            "avgFwdRet5": 0.008548881649607157,
+            "medianFwdRet5": 0.009928796814855367,
+            "avgFwdMin5": -0.018000309813570408,
+            "avgFwdMax5": 0.02822167967291761,
+            "maxAdverseContinuation": 0.17252203217965723
+          },
+          "event": {
+            "signalCount": 1265,
+            "eventCount": 449,
+            "evaluatedCount": 449,
+            "downsideHitRate": 0.1403118040089087,
+            "strictTopHitRate": 0.10244988864142539,
+            "downsideHitRateLift": 1.0891449598140797,
+            "strictTopHitRateLift": 1.1902854741073197,
+            "downsideHitRateDelta": 0.011484320812493454,
+            "avgFwdRet5": 0.007699898541469117,
+            "medianFwdRet5": 0.006731593077054843,
+            "avgFwdMin5": -0.01711714221299479,
+            "avgFwdMax5": 0.026316255869737428,
+            "maxAdverseContinuation": 0.17252203217965723
+          }
+        },
+        "vix_confirmation_simple": {
+          "label": "VIX > VIX_MA5 and delta VIX > 0",
+          "daily": {
+            "signalCount": 1755,
+            "eventCount": 627,
+            "evaluatedCount": 1752,
+            "downsideHitRate": 0.1267123287671233,
+            "strictTopHitRate": 0.0839041095890411,
+            "downsideHitRateLift": 0.9835814969227715,
+            "strictTopHitRateLift": 0.9748165096722432,
+            "downsideHitRateDelta": -0.0021151544292919433,
+            "avgFwdRet5": 0.006802160718185876,
+            "medianFwdRet5": 0.007070360603549153,
+            "avgFwdMin5": -0.016812576462341394,
+            "avgFwdMax5": 0.024947034417415446,
+            "maxAdverseContinuation": 0.1873480889377872
+          },
+          "event": {
+            "signalCount": 1755,
+            "eventCount": 627,
+            "evaluatedCount": 627,
+            "downsideHitRate": 0.12121212121212122,
+            "strictTopHitRate": 0.0861244019138756,
+            "downsideHitRateLift": 0.94088713219148,
+            "strictTopHitRateLift": 1.0006123571599084,
+            "downsideHitRateDelta": -0.007615361984294022,
+            "avgFwdRet5": 0.005452198093864757,
+            "medianFwdRet5": 0.005622969908684272,
+            "avgFwdMin5": -0.017395812579869684,
+            "avgFwdMax5": 0.023410474724857504,
+            "maxAdverseContinuation": 0.1758893280632412
+          }
+        }
+      }
+    },
+    "recent_3y": {
+      "label": "Recent 3Y",
+      "start": "2023-06-26",
+      "end": "2026-06-26",
+      "sampleCount": 749,
+      "baseRates": {
+        "downsideHitRate": 0.1588785046728972,
+        "strictTopHitRate": 0.09078771695594126
+      },
+      "ruleStats": {
+        "oh_ge_4": {
+          "label": "OH >= 4",
+          "daily": {
+            "signalCount": 147,
+            "eventCount": 44,
+            "evaluatedCount": 146,
+            "downsideHitRate": 0.2191780821917808,
+            "strictTopHitRate": 0.136986301369863,
+            "downsideHitRateLift": 1.379532634971797,
+            "strictTopHitRateLift": 1.5088638195004027,
+            "downsideHitRateDelta": 0.060299577518883624,
+            "avgFwdRet5": 0.0039202332314211795,
+            "medianFwdRet5": 0.005527073277502348,
+            "avgFwdMin5": -0.021766954378341526,
+            "avgFwdMax5": 0.027418281429317612,
+            "maxAdverseContinuation": 0.13094684430826464
+          },
+          "event": {
+            "signalCount": 147,
+            "eventCount": 44,
+            "evaluatedCount": 44,
+            "downsideHitRate": 0.22727272727272727,
+            "strictTopHitRate": 0.13636363636363635,
+            "downsideHitRateLift": 1.4304812834224598,
+            "strictTopHitRateLift": 1.5020053475935826,
+            "downsideHitRateDelta": 0.06839422259983008,
+            "avgFwdRet5": 0.0051176451245459305,
+            "medianFwdRet5": 0.010371506334891256,
+            "avgFwdMin5": -0.020244147989934045,
+            "avgFwdMax5": 0.025530600578522068,
+            "maxAdverseContinuation": 0.10021874982924417
+          }
+        },
+        "oh_eq_5": {
+          "label": "OH = 5",
+          "daily": {
+            "signalCount": 81,
+            "eventCount": 30,
+            "evaluatedCount": 80,
+            "downsideHitRate": 0.225,
+            "strictTopHitRate": 0.1375,
+            "downsideHitRateLift": 1.4161764705882354,
+            "strictTopHitRateLift": 1.5145220588235295,
+            "downsideHitRateDelta": 0.06612149532710282,
+            "avgFwdRet5": 0.003997953897283871,
+            "medianFwdRet5": 0.006058372371957721,
+            "avgFwdMin5": -0.022349654154704753,
+            "avgFwdMax5": 0.02576472606047584,
+            "maxAdverseContinuation": 0.10022938756032951
+          },
+          "event": {
+            "signalCount": 81,
+            "eventCount": 30,
+            "evaluatedCount": 30,
+            "downsideHitRate": 0.26666666666666666,
+            "strictTopHitRate": 0.2,
+            "downsideHitRateLift": 1.6784313725490196,
+            "strictTopHitRateLift": 2.2029411764705884,
+            "downsideHitRateDelta": 0.10778816199376948,
+            "avgFwdRet5": 0.007457785910274868,
+            "medianFwdRet5": 0.015081372583739983,
+            "avgFwdMin5": -0.021196255317491475,
+            "avgFwdMax5": 0.027021500212851483,
+            "maxAdverseContinuation": 0.10021874982924417
+          }
+        },
+        "rf_ge_4": {
+          "label": "RF >= 4",
+          "daily": {
+            "signalCount": 209,
+            "eventCount": 59,
+            "evaluatedCount": 206,
+            "downsideHitRate": 0.18932038834951456,
+            "strictTopHitRate": 0.12135922330097088,
+            "downsideHitRateLift": 1.1916047972587094,
+            "strictTopHitRateLift": 1.3367361507709878,
+            "downsideHitRateDelta": 0.030441883676617376,
+            "avgFwdRet5": 0.011253653382674084,
+            "medianFwdRet5": 0.010717850393518136,
+            "avgFwdMin5": -0.01960317537807736,
+            "avgFwdMax5": 0.031930726988143046,
+            "maxAdverseContinuation": 0.15509492514619327
+          },
+          "event": {
+            "signalCount": 209,
+            "eventCount": 59,
+            "evaluatedCount": 59,
+            "downsideHitRate": 0.1694915254237288,
+            "strictTopHitRate": 0.13559322033898305,
+            "downsideHitRateLift": 1.0667996011964107,
+            "strictTopHitRateLift": 1.493519441674975,
+            "downsideHitRateDelta": 0.01061302075083162,
+            "avgFwdRet5": 0.010805956848525308,
+            "medianFwdRet5": 0.004589159994278003,
+            "avgFwdMin5": -0.020970225964645695,
+            "avgFwdMax5": 0.029927869747329573,
+            "maxAdverseContinuation": 0.14385123365010588
+          }
+        },
+        "rf_eq_5": {
+          "label": "RF = 5",
+          "daily": {
+            "signalCount": 38,
+            "eventCount": 16,
+            "evaluatedCount": 37,
+            "downsideHitRate": 0.21621621621621623,
+            "strictTopHitRate": 0.1891891891891892,
+            "downsideHitRateLift": 1.3608903020667729,
+            "strictTopHitRateLift": 2.0838632750397457,
+            "downsideHitRateDelta": 0.05733771154331904,
+            "avgFwdRet5": 0.019120788793218844,
+            "medianFwdRet5": 0.02349483956631193,
+            "avgFwdMin5": -0.016712251554445712,
+            "avgFwdMax5": 0.03746376399161486,
+            "maxAdverseContinuation": 0.15245749868501135
+          },
+          "event": {
+            "signalCount": 38,
+            "eventCount": 16,
+            "evaluatedCount": 16,
+            "downsideHitRate": 0.25,
+            "strictTopHitRate": 0.25,
+            "downsideHitRateLift": 1.573529411764706,
+            "strictTopHitRateLift": 2.753676470588235,
+            "downsideHitRateDelta": 0.09112149532710281,
+            "avgFwdRet5": 0.006032512307600671,
+            "medianFwdRet5": -0.0019381379556189238,
+            "avgFwdMin5": -0.028976843244378214,
+            "avgFwdMax5": 0.020801932452630977,
+            "maxAdverseContinuation": 0.1348637052412811
+          }
+        },
+        "setup_ge_4": {
+          "label": "OH >= 4 OR RF >= 4",
+          "daily": {
+            "signalCount": 354,
+            "eventCount": 91,
+            "evaluatedCount": 350,
+            "downsideHitRate": 0.20285714285714285,
+            "strictTopHitRate": 0.12857142857142856,
+            "downsideHitRateLift": 1.2768067226890756,
+            "strictTopHitRateLift": 1.4161764705882351,
+            "downsideHitRateDelta": 0.04397863818424566,
+            "avgFwdRet5": 0.00783961463938756,
+            "medianFwdRet5": 0.008238016885218635,
+            "avgFwdMin5": -0.020590720210658407,
+            "avgFwdMax5": 0.029811592352586094,
+            "maxAdverseContinuation": 0.15509492514619327
+          },
+          "event": {
+            "signalCount": 354,
+            "eventCount": 91,
+            "evaluatedCount": 91,
+            "downsideHitRate": 0.17582417582417584,
+            "strictTopHitRate": 0.12087912087912088,
+            "downsideHitRateLift": 1.1066580478345185,
+            "strictTopHitRateLift": 1.331447963800905,
+            "downsideHitRateDelta": 0.016945671151278652,
+            "avgFwdRet5": 0.005425588295502872,
+            "medianFwdRet5": 0.004310739627039206,
+            "avgFwdMin5": -0.02167543280057423,
+            "avgFwdMax5": 0.028940192269409547,
+            "maxAdverseContinuation": 0.15509492514619327
+          }
+        },
+        "red_zone": {
+          "label": "OH = 5 OR RF = 5",
+          "daily": {
+            "signalCount": 119,
+            "eventCount": 45,
+            "evaluatedCount": 117,
+            "downsideHitRate": 0.2222222222222222,
+            "strictTopHitRate": 0.15384615384615385,
+            "downsideHitRateLift": 1.3986928104575163,
+            "strictTopHitRateLift": 1.6945701357466063,
+            "downsideHitRateDelta": 0.06334371754932502,
+            "avgFwdRet5": 0.00878038886437442,
+            "medianFwdRet5": 0.007768940597280061,
+            "avgFwdMin5": -0.02056688581103309,
+            "avgFwdMax5": 0.029464421816477068,
+            "maxAdverseContinuation": 0.15245749868501135
+          },
+          "event": {
+            "signalCount": 119,
+            "eventCount": 45,
+            "evaluatedCount": 45,
+            "downsideHitRate": 0.26666666666666666,
+            "strictTopHitRate": 0.2222222222222222,
+            "downsideHitRateLift": 1.6784313725490196,
+            "strictTopHitRateLift": 2.4477124183006533,
+            "downsideHitRateDelta": 0.10778816199376948,
+            "avgFwdRet5": 0.005416149283261124,
+            "medianFwdRet5": 0.012060192544107062,
+            "avgFwdMin5": -0.023748024185668064,
+            "avgFwdMax5": 0.02400897304318609,
+            "maxAdverseContinuation": 0.1348637052412811
+          }
+        },
+        "confirmed_top_risk": {
+          "label": "confirmed_top_risk",
+          "daily": {
+            "signalCount": 297,
+            "eventCount": 84,
+            "evaluatedCount": 292,
+            "downsideHitRate": 0.20205479452054795,
+            "strictTopHitRate": 0.1095890410958904,
+            "downsideHitRateLift": 1.2717566478646254,
+            "strictTopHitRateLift": 1.2070910556003223,
+            "downsideHitRateDelta": 0.04317628984765076,
+            "avgFwdRet5": 0.008687628667758499,
+            "medianFwdRet5": 0.007789207744658189,
+            "avgFwdMin5": -0.020270650027894944,
+            "avgFwdMax5": 0.03073207707028489,
+            "maxAdverseContinuation": 0.15509492514619327
+          },
+          "event": {
+            "signalCount": 297,
+            "eventCount": 84,
+            "evaluatedCount": 84,
+            "downsideHitRate": 0.15476190476190477,
+            "strictTopHitRate": 0.10714285714285714,
+            "downsideHitRateLift": 0.9740896358543418,
+            "strictTopHitRateLift": 1.1801470588235292,
+            "downsideHitRateDelta": -0.004116599910992419,
+            "avgFwdRet5": 0.011726789921780075,
+            "medianFwdRet5": 0.008951695650216251,
+            "avgFwdMin5": -0.018427511180378282,
+            "avgFwdMax5": 0.030671133160466185,
+            "maxAdverseContinuation": 0.15245749868501135
+          }
+        },
+        "rsi14_gt_70": {
+          "label": "RSI14 > 70",
+          "daily": {
+            "signalCount": 96,
+            "eventCount": 25,
+            "evaluatedCount": 96,
+            "downsideHitRate": 0.19791666666666666,
+            "strictTopHitRate": 0.125,
+            "downsideHitRateLift": 1.2457107843137256,
+            "strictTopHitRateLift": 1.3768382352941175,
+            "downsideHitRateDelta": 0.03903816199376947,
+            "avgFwdRet5": 0.006273692424552017,
+            "medianFwdRet5": 0.004019646338351501,
+            "avgFwdMin5": -0.0216656595876706,
+            "avgFwdMax5": 0.029349989216896497,
+            "maxAdverseContinuation": 0.1467897397732818
+          },
+          "event": {
+            "signalCount": 96,
+            "eventCount": 25,
+            "evaluatedCount": 25,
+            "downsideHitRate": 0.2,
+            "strictTopHitRate": 0.12,
+            "downsideHitRateLift": 1.258823529411765,
+            "strictTopHitRateLift": 1.3217647058823527,
+            "downsideHitRateDelta": 0.041121495327102825,
+            "avgFwdRet5": 0.004070359571679325,
+            "medianFwdRet5": 0.005720568486564659,
+            "avgFwdMin5": -0.01895491565382481,
+            "avgFwdMax5": 0.027242652681861403,
+            "maxAdverseContinuation": 0.11697156153554089
+          }
+        },
+        "rsi5_gt_70": {
+          "label": "RSI5 > 70",
+          "daily": {
+            "signalCount": 213,
+            "eventCount": 63,
+            "evaluatedCount": 212,
+            "downsideHitRate": 0.18867924528301888,
+            "strictTopHitRate": 0.1179245283018868,
+            "downsideHitRateLift": 1.1875693673695895,
+            "strictTopHitRateLift": 1.2989039955604882,
+            "downsideHitRateDelta": 0.029800740610121695,
+            "avgFwdRet5": 0.0038387386173960865,
+            "medianFwdRet5": 0.00604920194234615,
+            "avgFwdMin5": -0.021507418482534544,
+            "avgFwdMax5": 0.025336623095998802,
+            "maxAdverseContinuation": 0.1467897397732818
+          },
+          "event": {
+            "signalCount": 213,
+            "eventCount": 63,
+            "evaluatedCount": 63,
+            "downsideHitRate": 0.23809523809523808,
+            "strictTopHitRate": 0.1111111111111111,
+            "downsideHitRateLift": 1.4985994397759104,
+            "strictTopHitRateLift": 1.2238562091503267,
+            "downsideHitRateDelta": 0.0792167334223409,
+            "avgFwdRet5": 0.0008096125004517014,
+            "medianFwdRet5": 0.00637783539812764,
+            "avgFwdMin5": -0.02221923696266922,
+            "avgFwdMax5": 0.021143457152542112,
+            "maxAdverseContinuation": 0.1467897397732818
+          }
+        },
+        "z20_gt_1_5": {
+          "label": "z20 > 1.5",
+          "daily": {
+            "signalCount": 153,
+            "eventCount": 46,
+            "evaluatedCount": 152,
+            "downsideHitRate": 0.21052631578947367,
+            "strictTopHitRate": 0.125,
+            "downsideHitRateLift": 1.325077399380805,
+            "strictTopHitRateLift": 1.3768382352941175,
+            "downsideHitRateDelta": 0.051647811116576486,
+            "avgFwdRet5": 0.0006765442105307095,
+            "medianFwdRet5": 0.004019646338351501,
+            "avgFwdMin5": -0.02358461422463636,
+            "avgFwdMax5": 0.023041673733562175,
+            "maxAdverseContinuation": 0.10022938756032951
+          },
+          "event": {
+            "signalCount": 153,
+            "eventCount": 46,
+            "evaluatedCount": 46,
+            "downsideHitRate": 0.1956521739130435,
+            "strictTopHitRate": 0.10869565217391304,
+            "downsideHitRateLift": 1.231457800511509,
+            "strictTopHitRateLift": 1.1972506393861893,
+            "downsideHitRateDelta": 0.0367736692401463,
+            "avgFwdRet5": -0.0005839423730166288,
+            "medianFwdRet5": 0.00674475454192236,
+            "avgFwdMin5": -0.023012069579280394,
+            "avgFwdMax5": 0.022288372587856084,
+            "maxAdverseContinuation": 0.10021874982924417
+          }
+        },
+        "gap20_gt_4": {
+          "label": "gap20 > 4%",
+          "daily": {
+            "signalCount": 237,
+            "eventCount": 55,
+            "evaluatedCount": 235,
+            "downsideHitRate": 0.16170212765957448,
+            "strictTopHitRate": 0.10212765957446808,
+            "downsideHitRateLift": 1.0177722152690865,
+            "strictTopHitRateLift": 1.124906132665832,
+            "downsideHitRateDelta": 0.0028236229866772933,
+            "avgFwdRet5": 0.00933208268194254,
+            "medianFwdRet5": 0.009060214831444924,
+            "avgFwdMin5": -0.018788941855147706,
+            "avgFwdMax5": 0.02929626863363312,
+            "maxAdverseContinuation": 0.1467897397732818
+          },
+          "event": {
+            "signalCount": 237,
+            "eventCount": 55,
+            "evaluatedCount": 55,
+            "downsideHitRate": 0.14545454545454545,
+            "strictTopHitRate": 0.12727272727272726,
+            "downsideHitRateLift": 0.9155080213903743,
+            "strictTopHitRateLift": 1.4018716577540105,
+            "downsideHitRateDelta": -0.013423959218351739,
+            "avgFwdRet5": 0.004740054242543886,
+            "medianFwdRet5": 0.005720568486564659,
+            "avgFwdMin5": -0.019577828083052414,
+            "avgFwdMax5": 0.026436418222836443,
+            "maxAdverseContinuation": 0.1467897397732818
+          }
+        },
+        "roc20_gt_10": {
+          "label": "ROC20 > 10%",
+          "daily": {
+            "signalCount": 180,
+            "eventCount": 42,
+            "evaluatedCount": 178,
+            "downsideHitRate": 0.14606741573033707,
+            "strictTopHitRate": 0.0898876404494382,
+            "downsideHitRateLift": 0.9193654990085922,
+            "strictTopHitRateLift": 0.990085922009253,
+            "downsideHitRateDelta": -0.012811088942560112,
+            "avgFwdRet5": 0.01535342033308152,
+            "medianFwdRet5": 0.014043364168175976,
+            "avgFwdMin5": -0.01514632851060472,
+            "avgFwdMax5": 0.0341147773094811,
+            "maxAdverseContinuation": 0.1467897397732818
+          },
+          "event": {
+            "signalCount": 180,
+            "eventCount": 42,
+            "evaluatedCount": 42,
+            "downsideHitRate": 0.11904761904761904,
+            "strictTopHitRate": 0.09523809523809523,
+            "downsideHitRateLift": 0.7492997198879552,
+            "strictTopHitRateLift": 1.049019607843137,
+            "downsideHitRateDelta": -0.039830885625278145,
+            "avgFwdRet5": 0.01349113156953459,
+            "medianFwdRet5": 0.015172670078349215,
+            "avgFwdMin5": -0.015010243444305587,
+            "avgFwdMax5": 0.029735621812989294,
+            "maxAdverseContinuation": 0.09526304768829941
+          }
+        },
+        "rollover_after_setup": {
+          "label": "C < MA5 after OH/RF setup",
+          "daily": {
+            "signalCount": 184,
+            "eventCount": 63,
+            "evaluatedCount": 180,
+            "downsideHitRate": 0.23333333333333334,
+            "strictTopHitRate": 0.12777777777777777,
+            "downsideHitRateLift": 1.4686274509803923,
+            "strictTopHitRateLift": 1.4074346405228757,
+            "downsideHitRateDelta": 0.07445482866043615,
+            "avgFwdRet5": 0.007483532132629366,
+            "medianFwdRet5": 0.011194565167246262,
+            "avgFwdMin5": -0.021892909610794986,
+            "avgFwdMax5": 0.030444026157836607,
+            "maxAdverseContinuation": 0.15509492514619327
+          },
+          "event": {
+            "signalCount": 184,
+            "eventCount": 63,
+            "evaluatedCount": 63,
+            "downsideHitRate": 0.14285714285714285,
+            "strictTopHitRate": 0.1111111111111111,
+            "downsideHitRateLift": 0.8991596638655462,
+            "strictTopHitRateLift": 1.2238562091503267,
+            "downsideHitRateDelta": -0.016021361815754337,
+            "avgFwdRet5": 0.007422882466131459,
+            "medianFwdRet5": 0.005510623421087324,
+            "avgFwdMin5": -0.01964557467963144,
+            "avgFwdMax5": 0.02769244638717036,
+            "maxAdverseContinuation": 0.12062450208825415
+          }
+        },
+        "vix_confirmation_simple": {
+          "label": "VIX > VIX_MA5 and delta VIX > 0",
+          "daily": {
+            "signalCount": 245,
+            "eventCount": 89,
+            "evaluatedCount": 242,
+            "downsideHitRate": 0.16115702479338842,
+            "strictTopHitRate": 0.0743801652892562,
+            "downsideHitRateLift": 1.0143412736995625,
+            "strictTopHitRateLift": 0.8192756441419543,
+            "downsideHitRateDelta": 0.002278520120491234,
+            "avgFwdRet5": 0.012064763119611948,
+            "medianFwdRet5": 0.01692727872733435,
+            "avgFwdMin5": -0.01853770896730748,
+            "avgFwdMax5": 0.034785005015172864,
+            "maxAdverseContinuation": 0.1873480889377872
+          },
+          "event": {
+            "signalCount": 245,
+            "eventCount": 89,
+            "evaluatedCount": 89,
+            "downsideHitRate": 0.1348314606741573,
+            "strictTopHitRate": 0.10112359550561797,
+            "downsideHitRateLift": 0.8486450760079313,
+            "strictTopHitRateLift": 1.1138466622604097,
+            "downsideHitRateDelta": -0.024047043998739887,
+            "avgFwdRet5": 0.01414387162630698,
+            "medianFwdRet5": 0.016416609996599663,
+            "avgFwdMin5": -0.017421118976597393,
+            "avgFwdMax5": 0.03427482225842504,
+            "maxAdverseContinuation": 0.1758893280632412
+          }
+        }
+      }
+    },
+    "recent_1y": {
+      "label": "Recent 1Y",
+      "start": "2025-06-26",
+      "end": "2026-06-26",
+      "sampleCount": 247,
+      "baseRates": {
+        "downsideHitRate": 0.145748987854251,
+        "strictTopHitRate": 0.0728744939271255
+      },
+      "ruleStats": {
+        "oh_ge_4": {
+          "label": "OH >= 4",
+          "daily": {
+            "signalCount": 74,
+            "eventCount": 20,
+            "evaluatedCount": 73,
+            "downsideHitRate": 0.2328767123287671,
+            "strictTopHitRate": 0.1232876712328767,
+            "downsideHitRateLift": 1.59779299847793,
+            "strictTopHitRateLift": 1.6917808219178083,
+            "downsideHitRateDelta": 0.08712772447451611,
+            "avgFwdRet5": 0.014724611934305963,
+            "medianFwdRet5": 0.01707010136048792,
+            "avgFwdMin5": -0.019268979191743658,
+            "avgFwdMax5": 0.036375380242875725,
+            "maxAdverseContinuation": 0.11138481634378894
+          },
+          "event": {
+            "signalCount": 74,
+            "eventCount": 20,
+            "evaluatedCount": 20,
+            "downsideHitRate": 0.25,
+            "strictTopHitRate": 0.1,
+            "downsideHitRateLift": 1.715277777777778,
+            "strictTopHitRateLift": 1.3722222222222225,
+            "downsideHitRateDelta": 0.104251012145749,
+            "avgFwdRet5": 0.01564706547475859,
+            "medianFwdRet5": 0.014038909903726027,
+            "avgFwdMin5": -0.01715752696008801,
+            "avgFwdMax5": 0.03317428938867758,
+            "maxAdverseContinuation": 0.10021874982924417
+          }
+        },
+        "oh_eq_5": {
+          "label": "OH = 5",
+          "daily": {
+            "signalCount": 44,
+            "eventCount": 14,
+            "evaluatedCount": 43,
+            "downsideHitRate": 0.2558139534883721,
+            "strictTopHitRate": 0.13953488372093023,
+            "downsideHitRateLift": 1.755167958656331,
+            "strictTopHitRateLift": 1.9147286821705427,
+            "downsideHitRateDelta": 0.1100649656341211,
+            "avgFwdRet5": 0.012747578219213483,
+            "medianFwdRet5": 0.015391780332512539,
+            "avgFwdMin5": -0.02354764987050102,
+            "avgFwdMax5": 0.03281938797438031,
+            "maxAdverseContinuation": 0.10022938756032951
+          },
+          "event": {
+            "signalCount": 44,
+            "eventCount": 14,
+            "evaluatedCount": 14,
+            "downsideHitRate": 0.2857142857142857,
+            "strictTopHitRate": 0.21428571428571427,
+            "downsideHitRateLift": 1.9603174603174605,
+            "strictTopHitRateLift": 2.9404761904761907,
+            "downsideHitRateDelta": 0.1399652978600347,
+            "avgFwdRet5": 0.01938004998698763,
+            "medianFwdRet5": 0.02599630759532301,
+            "avgFwdMin5": -0.021516924070186787,
+            "avgFwdMax5": 0.036696241638728,
+            "maxAdverseContinuation": 0.10021874982924417
+          }
+        },
+        "rf_ge_4": {
+          "label": "RF >= 4",
+          "daily": {
+            "signalCount": 50,
+            "eventCount": 15,
+            "evaluatedCount": 47,
+            "downsideHitRate": 0.23404255319148937,
+            "strictTopHitRate": 0.1276595744680851,
+            "downsideHitRateLift": 1.605791962174941,
+            "strictTopHitRateLift": 1.75177304964539,
+            "downsideHitRateDelta": 0.08829356533723837,
+            "avgFwdRet5": 0.02673582579799928,
+            "medianFwdRet5": 0.02412721668035056,
+            "avgFwdMin5": -0.017548574473670333,
+            "avgFwdMax5": 0.04463588003896954,
+            "maxAdverseContinuation": 0.15509492514619327
+          },
+          "event": {
+            "signalCount": 50,
+            "eventCount": 15,
+            "evaluatedCount": 15,
+            "downsideHitRate": 0.2,
+            "strictTopHitRate": 0.2,
+            "downsideHitRateLift": 1.3722222222222225,
+            "strictTopHitRateLift": 2.744444444444445,
+            "downsideHitRateDelta": 0.05425101214574901,
+            "avgFwdRet5": 0.028294112822553334,
+            "medianFwdRet5": 0.02412721668035056,
+            "avgFwdMin5": -0.017248954019549876,
+            "avgFwdMax5": 0.04026425229326959,
+            "maxAdverseContinuation": 0.1348637052412811
+          }
+        },
+        "rf_eq_5": {
+          "label": "RF = 5",
+          "daily": {
+            "signalCount": 13,
+            "eventCount": 5,
+            "evaluatedCount": 12,
+            "downsideHitRate": 0.08333333333333333,
+            "strictTopHitRate": 0.08333333333333333,
+            "downsideHitRateLift": 0.5717592592592593,
+            "strictTopHitRateLift": 1.1435185185185186,
+            "downsideHitRateDelta": -0.06241565452091767,
+            "avgFwdRet5": 0.0748176595977141,
+            "medianFwdRet5": 0.07546200733414843,
+            "avgFwdMin5": 0.0011361626447786617,
+            "avgFwdMax5": 0.07603625340912974,
+            "maxAdverseContinuation": 0.15245749868501135
+          },
+          "event": {
+            "signalCount": 13,
+            "eventCount": 5,
+            "evaluatedCount": 5,
+            "downsideHitRate": 0.2,
+            "strictTopHitRate": 0.2,
+            "downsideHitRateLift": 1.3722222222222225,
+            "strictTopHitRateLift": 2.744444444444445,
+            "downsideHitRateDelta": 0.05425101214574901,
+            "avgFwdRet5": 0.03755662172976189,
+            "medianFwdRet5": 0.022196122974188937,
+            "avgFwdMin5": -0.03358045326897459,
+            "avgFwdMax5": 0.03861037582348281,
+            "maxAdverseContinuation": 0.1348637052412811
+          }
+        },
+        "setup_ge_4": {
+          "label": "OH >= 4 OR RF >= 4",
+          "daily": {
+            "signalCount": 124,
+            "eventCount": 31,
+            "evaluatedCount": 120,
+            "downsideHitRate": 0.23333333333333334,
+            "strictTopHitRate": 0.125,
+            "downsideHitRateLift": 1.600925925925926,
+            "strictTopHitRateLift": 1.715277777777778,
+            "downsideHitRateDelta": 0.08758434547908234,
+            "avgFwdRet5": 0.019429004030919177,
+            "medianFwdRet5": 0.02060524489875093,
+            "avgFwdMin5": -0.01859515401049827,
+            "avgFwdMax5": 0.03961074266301247,
+            "maxAdverseContinuation": 0.15509492514619327
+          },
+          "event": {
+            "signalCount": 124,
+            "eventCount": 31,
+            "evaluatedCount": 31,
+            "downsideHitRate": 0.22580645161290322,
+            "strictTopHitRate": 0.12903225806451613,
+            "downsideHitRateLift": 1.549283154121864,
+            "strictTopHitRateLift": 1.7706093189964158,
+            "downsideHitRateDelta": 0.08005746375865222,
+            "avgFwdRet5": 0.015568459054406184,
+            "medianFwdRet5": 0.022196122974188937,
+            "avgFwdMin5": -0.01663674346212227,
+            "avgFwdMax5": 0.03776434025969944,
+            "maxAdverseContinuation": 0.15509492514619327
+          }
+        },
+        "red_zone": {
+          "label": "OH = 5 OR RF = 5",
+          "daily": {
+            "signalCount": 57,
+            "eventCount": 19,
+            "evaluatedCount": 55,
+            "downsideHitRate": 0.21818181818181817,
+            "strictTopHitRate": 0.12727272727272726,
+            "downsideHitRateLift": 1.496969696969697,
+            "strictTopHitRateLift": 1.7464646464646465,
+            "downsideHitRateDelta": 0.07243283032756717,
+            "avgFwdRet5": 0.026290141429068162,
+            "medianFwdRet5": 0.022196122974188937,
+            "avgFwdMin5": -0.01816209077625818,
+            "avgFwdMax5": 0.04224852225105291,
+            "maxAdverseContinuation": 0.15245749868501135
+          },
+          "event": {
+            "signalCount": 57,
+            "eventCount": 19,
+            "evaluatedCount": 19,
+            "downsideHitRate": 0.2631578947368421,
+            "strictTopHitRate": 0.21052631578947367,
+            "downsideHitRateLift": 1.8055555555555556,
+            "strictTopHitRateLift": 2.888888888888889,
+            "downsideHitRateDelta": 0.11740890688259109,
+            "avgFwdRet5": 0.020966917500419603,
+            "medianFwdRet5": 0.022196122974188937,
+            "avgFwdMin5": -0.024095256231317686,
+            "avgFwdMax5": 0.03471167388946223,
+            "maxAdverseContinuation": 0.1348637052412811
+          }
+        },
+        "confirmed_top_risk": {
+          "label": "confirmed_top_risk",
+          "daily": {
+            "signalCount": 103,
+            "eventCount": 28,
+            "evaluatedCount": 98,
+            "downsideHitRate": 0.19387755102040816,
+            "strictTopHitRate": 0.09183673469387756,
+            "downsideHitRateLift": 1.3302154195011338,
+            "strictTopHitRateLift": 1.2602040816326532,
+            "downsideHitRateDelta": 0.04812856316615716,
+            "avgFwdRet5": 0.02227613374219441,
+            "medianFwdRet5": 0.025537200168409213,
+            "avgFwdMin5": -0.014712187929189328,
+            "avgFwdMax5": 0.04262324492388065,
+            "maxAdverseContinuation": 0.15509492514619327
+          },
+          "event": {
+            "signalCount": 103,
+            "eventCount": 28,
+            "evaluatedCount": 28,
+            "downsideHitRate": 0.17857142857142858,
+            "strictTopHitRate": 0.10714285714285714,
+            "downsideHitRateLift": 1.2251984126984128,
+            "strictTopHitRateLift": 1.4702380952380953,
+            "downsideHitRateDelta": 0.032822440717177576,
+            "avgFwdRet5": 0.022579714404180776,
+            "medianFwdRet5": 0.027473520886792557,
+            "avgFwdMin5": -0.012565304999051782,
+            "avgFwdMax5": 0.04339143208363145,
+            "maxAdverseContinuation": 0.15245749868501135
+          }
+        },
+        "rsi14_gt_70": {
+          "label": "RSI14 > 70",
+          "daily": {
+            "signalCount": 59,
+            "eventCount": 13,
+            "evaluatedCount": 59,
+            "downsideHitRate": 0.2033898305084746,
+            "strictTopHitRate": 0.11864406779661017,
+            "downsideHitRateLift": 1.3954802259887007,
+            "strictTopHitRateLift": 1.6280602636534842,
+            "downsideHitRateDelta": 0.05764084265422359,
+            "avgFwdRet5": 0.02075128656546971,
+            "medianFwdRet5": 0.01707010136048792,
+            "avgFwdMin5": -0.017986823483371488,
+            "avgFwdMax5": 0.04026874217364528,
+            "maxAdverseContinuation": 0.1467897397732818
+          },
+          "event": {
+            "signalCount": 59,
+            "eventCount": 13,
+            "evaluatedCount": 13,
+            "downsideHitRate": 0.23076923076923078,
+            "strictTopHitRate": 0.07692307692307693,
+            "downsideHitRateLift": 1.5833333333333335,
+            "strictTopHitRateLift": 1.0555555555555558,
+            "downsideHitRateDelta": 0.08502024291497978,
+            "avgFwdRet5": 0.015737744209329683,
+            "medianFwdRet5": 0.01906717724209872,
+            "avgFwdMin5": -0.016621659640654055,
+            "avgFwdMax5": 0.03767367674550177,
+            "maxAdverseContinuation": 0.11697156153554089
+          }
+        },
+        "rsi5_gt_70": {
+          "label": "RSI5 > 70",
+          "daily": {
+            "signalCount": 97,
+            "eventCount": 25,
+            "evaluatedCount": 96,
+            "downsideHitRate": 0.1875,
+            "strictTopHitRate": 0.10416666666666667,
+            "downsideHitRateLift": 1.2864583333333335,
+            "strictTopHitRateLift": 1.4293981481481484,
+            "downsideHitRateDelta": 0.041751012145749,
+            "avgFwdRet5": 0.013931291211884437,
+            "medianFwdRet5": 0.016891629737046276,
+            "avgFwdMin5": -0.018421771166357483,
+            "avgFwdMax5": 0.03245641277790431,
+            "maxAdverseContinuation": 0.1467897397732818
+          },
+          "event": {
+            "signalCount": 97,
+            "eventCount": 25,
+            "evaluatedCount": 25,
+            "downsideHitRate": 0.28,
+            "strictTopHitRate": 0.08,
+            "downsideHitRateLift": 1.9211111111111114,
+            "strictTopHitRateLift": 1.097777777777778,
+            "downsideHitRateDelta": 0.13425101214574903,
+            "avgFwdRet5": 0.006956783590039839,
+            "medianFwdRet5": 0.007768940597280061,
+            "avgFwdMin5": -0.021718664967352853,
+            "avgFwdMax5": 0.025942299286622682,
+            "maxAdverseContinuation": 0.1467897397732818
+          }
+        },
+        "z20_gt_1_5": {
+          "label": "z20 > 1.5",
+          "daily": {
+            "signalCount": 74,
+            "eventCount": 21,
+            "evaluatedCount": 73,
+            "downsideHitRate": 0.2328767123287671,
+            "strictTopHitRate": 0.1232876712328767,
+            "downsideHitRateLift": 1.59779299847793,
+            "strictTopHitRateLift": 1.6917808219178083,
+            "downsideHitRateDelta": 0.08712772447451611,
+            "avgFwdRet5": 0.00970412835144259,
+            "medianFwdRet5": 0.015391780332512539,
+            "avgFwdMin5": -0.021754378988878883,
+            "avgFwdMax5": 0.029812148460825645,
+            "maxAdverseContinuation": 0.10022938756032951
+          },
+          "event": {
+            "signalCount": 74,
+            "eventCount": 21,
+            "evaluatedCount": 21,
+            "downsideHitRate": 0.2857142857142857,
+            "strictTopHitRate": 0.14285714285714285,
+            "downsideHitRateLift": 1.9603174603174605,
+            "strictTopHitRateLift": 1.9603174603174605,
+            "downsideHitRateDelta": 0.1399652978600347,
+            "avgFwdRet5": 0.0038896790516308242,
+            "medianFwdRet5": 0.012686039474939514,
+            "avgFwdMin5": -0.026144734346353428,
+            "avgFwdMax5": 0.02500656899873612,
+            "maxAdverseContinuation": 0.10021874982924417
+          }
+        },
+        "gap20_gt_4": {
+          "label": "gap20 > 4%",
+          "daily": {
+            "signalCount": 113,
+            "eventCount": 23,
+            "evaluatedCount": 111,
+            "downsideHitRate": 0.17117117117117117,
+            "strictTopHitRate": 0.09009009009009009,
+            "downsideHitRateLift": 1.1744244244244246,
+            "strictTopHitRateLift": 1.2362362362362362,
+            "downsideHitRateDelta": 0.02542218331692017,
+            "avgFwdRet5": 0.01926350555171033,
+            "medianFwdRet5": 0.02403078177010043,
+            "avgFwdMin5": -0.015506378547076186,
+            "avgFwdMax5": 0.03830477032449041,
+            "maxAdverseContinuation": 0.1467897397732818
+          },
+          "event": {
+            "signalCount": 113,
+            "eventCount": 23,
+            "evaluatedCount": 23,
+            "downsideHitRate": 0.08695652173913043,
+            "strictTopHitRate": 0.08695652173913043,
+            "downsideHitRateLift": 0.5966183574879227,
+            "strictTopHitRateLift": 1.1932367149758454,
+            "downsideHitRateDelta": -0.05879246611512057,
+            "avgFwdRet5": 0.02176858743980471,
+            "medianFwdRet5": 0.013718663693314426,
+            "avgFwdMin5": -0.011618544160461139,
+            "avgFwdMax5": 0.042165876015490315,
+            "maxAdverseContinuation": 0.1467897397732818
+          }
+        },
+        "roc20_gt_10": {
+          "label": "ROC20 > 10%",
+          "daily": {
+            "signalCount": 91,
+            "eventCount": 20,
+            "evaluatedCount": 89,
+            "downsideHitRate": 0.16853932584269662,
+            "strictTopHitRate": 0.07865168539325842,
+            "downsideHitRateLift": 1.1563670411985019,
+            "strictTopHitRateLift": 1.0792759051186018,
+            "downsideHitRateDelta": 0.022790337988445625,
+            "avgFwdRet5": 0.0235235521566833,
+            "medianFwdRet5": 0.017328307536022658,
+            "avgFwdMin5": -0.013771751122322817,
+            "avgFwdMax5": 0.04346958607894608,
+            "maxAdverseContinuation": 0.1467897397732818
+          },
+          "event": {
+            "signalCount": 91,
+            "eventCount": 20,
+            "evaluatedCount": 20,
+            "downsideHitRate": 0.1,
+            "strictTopHitRate": 0.05,
+            "downsideHitRateLift": 0.6861111111111112,
+            "strictTopHitRateLift": 0.6861111111111112,
+            "downsideHitRateDelta": -0.045748987854250994,
+            "avgFwdRet5": 0.02873612549001823,
+            "medianFwdRet5": 0.02599630759532301,
+            "avgFwdMin5": -0.009996137185959719,
+            "avgFwdMax5": 0.041119056845301635,
+            "maxAdverseContinuation": 0.09526304768829941
+          }
+        },
+        "rollover_after_setup": {
+          "label": "C < MA5 after OH/RF setup",
+          "daily": {
+            "signalCount": 58,
+            "eventCount": 19,
+            "evaluatedCount": 54,
+            "downsideHitRate": 0.2222222222222222,
+            "strictTopHitRate": 0.09259259259259259,
+            "downsideHitRateLift": 1.5246913580246915,
+            "strictTopHitRateLift": 1.2705761316872428,
+            "downsideHitRateDelta": 0.07647323436797121,
+            "avgFwdRet5": 0.029181857596075292,
+            "medianFwdRet5": 0.0325610002351614,
+            "avgFwdMin5": -0.01306836520154778,
+            "avgFwdMax5": 0.04711075062305601,
+            "maxAdverseContinuation": 0.15509492514619327
+          },
+          "event": {
+            "signalCount": 58,
+            "eventCount": 19,
+            "evaluatedCount": 19,
+            "downsideHitRate": 0.10526315789473684,
+            "strictTopHitRate": 0.10526315789473684,
+            "downsideHitRateLift": 0.7222222222222222,
+            "strictTopHitRateLift": 1.4444444444444444,
+            "downsideHitRateDelta": -0.040485829959514164,
+            "avgFwdRet5": 0.029379082326154708,
+            "medianFwdRet5": 0.03441400838609576,
+            "avgFwdMin5": -0.00539009633035661,
+            "avgFwdMax5": 0.0466828649675748,
+            "maxAdverseContinuation": 0.12062450208825415
+          }
+        },
+        "vix_confirmation_simple": {
+          "label": "VIX > VIX_MA5 and delta VIX > 0",
+          "daily": {
+            "signalCount": 86,
+            "eventCount": 30,
+            "evaluatedCount": 83,
+            "downsideHitRate": 0.13253012048192772,
+            "strictTopHitRate": 0.07228915662650602,
+            "downsideHitRateLift": 0.9093038821954486,
+            "strictTopHitRateLift": 0.9919678714859438,
+            "downsideHitRateDelta": -0.013218867372323279,
+            "avgFwdRet5": 0.023462961872736176,
+            "medianFwdRet5": 0.02721067513807962,
+            "avgFwdMin5": -0.011685508846350346,
+            "avgFwdMax5": 0.04174781295649773,
+            "maxAdverseContinuation": 0.15509492514619327
+          },
+          "event": {
+            "signalCount": 86,
+            "eventCount": 30,
+            "evaluatedCount": 30,
+            "downsideHitRate": 0.16666666666666666,
+            "strictTopHitRate": 0.13333333333333333,
+            "downsideHitRateLift": 1.1435185185185186,
+            "strictTopHitRateLift": 1.8296296296296297,
+            "downsideHitRateDelta": 0.020917678812415658,
+            "avgFwdRet5": 0.017319320260104656,
+            "medianFwdRet5": 0.01692727872733435,
+            "avgFwdMin5": -0.013056365404568223,
+            "avgFwdMax5": 0.03799683034991884,
+            "maxAdverseContinuation": 0.15245749868501135
+          }
+        }
+      }
+    },
+    "ytd": {
+      "label": "2026 YTD",
+      "start": "2026-01-01",
+      "end": "2026-06-26",
+      "sampleCount": 116,
+      "baseRates": {
+        "downsideHitRate": 0.19827586206896552,
+        "strictTopHitRate": 0.07758620689655173
+      },
+      "ruleStats": {
+        "oh_ge_4": {
+          "label": "OH >= 4",
+          "daily": {
+            "signalCount": 44,
+            "eventCount": 12,
+            "evaluatedCount": 43,
+            "downsideHitRate": 0.27906976744186046,
+            "strictTopHitRate": 0.13953488372093023,
+            "downsideHitRateLift": 1.4074823053589482,
+            "strictTopHitRateLift": 1.7984496124031006,
+            "downsideHitRateDelta": 0.08079390537289494,
+            "avgFwdRet5": 0.017696639732858163,
+            "medianFwdRet5": 0.0329254379485473,
+            "avgFwdMin5": -0.023094278984753,
+            "avgFwdMax5": 0.04466413103544011,
+            "maxAdverseContinuation": 0.11138481634378894
+          },
+          "event": {
+            "signalCount": 44,
+            "eventCount": 12,
+            "evaluatedCount": 12,
+            "downsideHitRate": 0.3333333333333333,
+            "strictTopHitRate": 0.08333333333333333,
+            "downsideHitRateLift": 1.681159420289855,
+            "strictTopHitRateLift": 1.074074074074074,
+            "downsideHitRateDelta": 0.1350574712643678,
+            "avgFwdRet5": 0.009069502149129077,
+            "medianFwdRet5": 0.010227490036109788,
+            "avgFwdMin5": -0.025358209360536094,
+            "avgFwdMax5": 0.035542721890966016,
+            "maxAdverseContinuation": 0.10021874982924417
+          }
+        },
+        "oh_eq_5": {
+          "label": "OH = 5",
+          "daily": {
+            "signalCount": 29,
+            "eventCount": 9,
+            "evaluatedCount": 28,
+            "downsideHitRate": 0.2857142857142857,
+            "strictTopHitRate": 0.14285714285714285,
+            "downsideHitRateLift": 1.4409937888198756,
+            "strictTopHitRateLift": 1.8412698412698412,
+            "downsideHitRateDelta": 0.08743842364532017,
+            "avgFwdRet5": 0.01648549263405267,
+            "medianFwdRet5": 0.03472995763060249,
+            "avgFwdMin5": -0.02486778545887867,
+            "avgFwdMax5": 0.042639635348678026,
+            "maxAdverseContinuation": 0.10022938756032951
+          },
+          "event": {
+            "signalCount": 29,
+            "eventCount": 9,
+            "evaluatedCount": 9,
+            "downsideHitRate": 0.3333333333333333,
+            "strictTopHitRate": 0.2222222222222222,
+            "downsideHitRateLift": 1.681159420289855,
+            "strictTopHitRateLift": 2.8641975308641974,
+            "downsideHitRateDelta": 0.1350574712643678,
+            "avgFwdRet5": 0.020816967181974306,
+            "medianFwdRet5": 0.03795565043320903,
+            "avgFwdMin5": -0.02679101215304141,
+            "avgFwdMax5": 0.046065950531034065,
+            "maxAdverseContinuation": 0.10021874982924417
+          }
+        },
+        "rf_ge_4": {
+          "label": "RF >= 4",
+          "daily": {
+            "signalCount": 32,
+            "eventCount": 8,
+            "evaluatedCount": 29,
+            "downsideHitRate": 0.27586206896551724,
+            "strictTopHitRate": 0.10344827586206896,
+            "downsideHitRateLift": 1.391304347826087,
+            "strictTopHitRateLift": 1.3333333333333333,
+            "downsideHitRateDelta": 0.07758620689655171,
+            "avgFwdRet5": 0.027060161958844288,
+            "medianFwdRet5": 0.004578381820200317,
+            "avgFwdMin5": -0.020981271228386954,
+            "avgFwdMax5": 0.04736861519060104,
+            "maxAdverseContinuation": 0.15509492514619327
+          },
+          "event": {
+            "signalCount": 32,
+            "eventCount": 8,
+            "evaluatedCount": 8,
+            "downsideHitRate": 0.25,
+            "strictTopHitRate": 0.25,
+            "downsideHitRateLift": 1.2608695652173914,
+            "strictTopHitRateLift": 3.2222222222222223,
+            "downsideHitRateDelta": 0.051724137931034475,
+            "avgFwdRet5": 0.03470458874298704,
+            "medianFwdRet5": 0.014352799250275439,
+            "avgFwdMin5": -0.023198412366616017,
+            "avgFwdMax5": 0.04141080146746237,
+            "maxAdverseContinuation": 0.1348637052412811
+          }
+        },
+        "rf_eq_5": {
+          "label": "RF = 5",
+          "daily": {
+            "signalCount": 8,
+            "eventCount": 3,
+            "evaluatedCount": 7,
+            "downsideHitRate": 0.14285714285714285,
+            "strictTopHitRate": 0.14285714285714285,
+            "downsideHitRateLift": 0.7204968944099378,
+            "strictTopHitRateLift": 1.8412698412698412,
+            "downsideHitRateDelta": -0.055418719211822676,
+            "avgFwdRet5": 0.08981378058995562,
+            "medianFwdRet5": 0.12159932526817951,
+            "avgFwdMin5": -0.0029553663648051376,
+            "avgFwdMax5": 0.09056646208547058,
+            "maxAdverseContinuation": 0.15245749868501135
+          },
+          "event": {
+            "signalCount": 8,
+            "eventCount": 3,
+            "evaluatedCount": 3,
+            "downsideHitRate": 0.3333333333333333,
+            "strictTopHitRate": 0.3333333333333333,
+            "downsideHitRateLift": 1.681159420289855,
+            "strictTopHitRateLift": 4.296296296296296,
+            "downsideHitRateDelta": 0.1350574712643678,
+            "avgFwdRet5": 0.03300377344025318,
+            "medianFwdRet5": -0.015089910241377957,
+            "avgFwdMin5": -0.04244177086640991,
+            "avgFwdMax5": 0.03476003026312139,
+            "maxAdverseContinuation": 0.1348637052412811
+          }
+        },
+        "setup_ge_4": {
+          "label": "OH >= 4 OR RF >= 4",
+          "daily": {
+            "signalCount": 76,
+            "eventCount": 18,
+            "evaluatedCount": 72,
+            "downsideHitRate": 0.2777777777777778,
+            "strictTopHitRate": 0.125,
+            "downsideHitRateLift": 1.4009661835748792,
+            "strictTopHitRateLift": 1.6111111111111112,
+            "downsideHitRateDelta": 0.07950191570881227,
+            "avgFwdRet5": 0.021468058407213688,
+            "medianFwdRet5": 0.018847062670538373,
+            "avgFwdMin5": -0.022243206416216674,
+            "avgFwdMax5": 0.04575343715349104,
+            "maxAdverseContinuation": 0.15509492514619327
+          },
+          "event": {
+            "signalCount": 76,
+            "eventCount": 18,
+            "evaluatedCount": 18,
+            "downsideHitRate": 0.2222222222222222,
+            "strictTopHitRate": 0.05555555555555555,
+            "downsideHitRateLift": 1.1207729468599033,
+            "strictTopHitRateLift": 0.7160493827160493,
+            "downsideHitRateDelta": 0.023946360153256685,
+            "avgFwdRet5": 0.017982655660572482,
+            "medianFwdRet5": 0.014038909903726027,
+            "avgFwdMin5": -0.01863583040744017,
+            "avgFwdMax5": 0.04625669026346257,
+            "maxAdverseContinuation": 0.15509492514619327
+          }
+        },
+        "red_zone": {
+          "label": "OH = 5 OR RF = 5",
+          "daily": {
+            "signalCount": 37,
+            "eventCount": 12,
+            "evaluatedCount": 35,
+            "downsideHitRate": 0.2571428571428571,
+            "strictTopHitRate": 0.14285714285714285,
+            "downsideHitRateLift": 1.296894409937888,
+            "strictTopHitRateLift": 1.8412698412698412,
+            "downsideHitRateDelta": 0.05886699507389159,
+            "avgFwdRet5": 0.03115115022523326,
+            "medianFwdRet5": 0.03795565043320903,
+            "avgFwdMin5": -0.020485301640063965,
+            "avgFwdMax5": 0.052225000696036535,
+            "maxAdverseContinuation": 0.15245749868501135
+          },
+          "event": {
+            "signalCount": 37,
+            "eventCount": 12,
+            "evaluatedCount": 12,
+            "downsideHitRate": 0.3333333333333333,
+            "strictTopHitRate": 0.25,
+            "downsideHitRateLift": 1.681159420289855,
+            "strictTopHitRateLift": 3.2222222222222223,
+            "downsideHitRateDelta": 0.1350574712643678,
+            "avgFwdRet5": 0.018802637416655377,
+            "medianFwdRet5": 0.03472995763060249,
+            "avgFwdMin5": -0.02975959058701254,
+            "avgFwdMax5": 0.039299682284070596,
+            "maxAdverseContinuation": 0.1348637052412811
+          }
+        },
+        "confirmed_top_risk": {
+          "label": "confirmed_top_risk",
+          "daily": {
+            "signalCount": 64,
+            "eventCount": 16,
+            "evaluatedCount": 59,
+            "downsideHitRate": 0.22033898305084745,
+            "strictTopHitRate": 0.1016949152542373,
+            "downsideHitRateLift": 1.1112748710390568,
+            "strictTopHitRateLift": 1.3107344632768363,
+            "downsideHitRateDelta": 0.02206312098188193,
+            "avgFwdRet5": 0.023635844878023036,
+            "medianFwdRet5": 0.02214331255540314,
+            "avgFwdMin5": -0.016682719670352984,
+            "avgFwdMax5": 0.04610507874445116,
+            "maxAdverseContinuation": 0.15509492514619327
+          },
+          "event": {
+            "signalCount": 64,
+            "eventCount": 16,
+            "evaluatedCount": 16,
+            "downsideHitRate": 0.1875,
+            "strictTopHitRate": 0.125,
+            "downsideHitRateLift": 0.9456521739130435,
+            "strictTopHitRateLift": 1.6111111111111112,
+            "downsideHitRateDelta": -0.010775862068965525,
+            "avgFwdRet5": 0.02879243397082027,
+            "medianFwdRet5": 0.02842045527110637,
+            "avgFwdMin5": -0.0130952356741686,
+            "avgFwdMax5": 0.05152794300059726,
+            "maxAdverseContinuation": 0.15245749868501135
+          }
+        },
+        "rsi14_gt_70": {
+          "label": "RSI14 > 70",
+          "daily": {
+            "signalCount": 33,
+            "eventCount": 7,
+            "evaluatedCount": 33,
+            "downsideHitRate": 0.2727272727272727,
+            "strictTopHitRate": 0.15151515151515152,
+            "downsideHitRateLift": 1.375494071146245,
+            "strictTopHitRateLift": 1.9528619528619529,
+            "downsideHitRateDelta": 0.07445141065830718,
+            "avgFwdRet5": 0.025651459057109458,
+            "medianFwdRet5": 0.04218157933119482,
+            "avgFwdMin5": -0.02212400285449695,
+            "avgFwdMax5": 0.053748422537607025,
+            "maxAdverseContinuation": 0.1467897397732818
+          },
+          "event": {
+            "signalCount": 33,
+            "eventCount": 7,
+            "evaluatedCount": 7,
+            "downsideHitRate": 0.2857142857142857,
+            "strictTopHitRate": 0.14285714285714285,
+            "downsideHitRateLift": 1.4409937888198756,
+            "strictTopHitRateLift": 1.8412698412698412,
+            "downsideHitRateDelta": 0.08743842364532017,
+            "avgFwdRet5": 0.02302960647790748,
+            "medianFwdRet5": 0.061915898189284224,
+            "avgFwdMin5": -0.01417104674522139,
+            "avgFwdMax5": 0.05674575050648208,
+            "maxAdverseContinuation": 0.11697156153554089
+          }
+        },
+        "rsi5_gt_70": {
+          "label": "RSI5 > 70",
+          "daily": {
+            "signalCount": 48,
+            "eventCount": 13,
+            "evaluatedCount": 47,
+            "downsideHitRate": 0.23404255319148937,
+            "strictTopHitRate": 0.1276595744680851,
+            "downsideHitRateLift": 1.1803885291396854,
+            "strictTopHitRateLift": 1.6453900709219855,
+            "downsideHitRateDelta": 0.03576669112252384,
+            "avgFwdRet5": 0.02305284296512371,
+            "medianFwdRet5": 0.0329254379485473,
+            "avgFwdMin5": -0.019522173454509975,
+            "avgFwdMax5": 0.045891861403791055,
+            "maxAdverseContinuation": 0.1467897397732818
+          },
+          "event": {
+            "signalCount": 48,
+            "eventCount": 13,
+            "evaluatedCount": 13,
+            "downsideHitRate": 0.38461538461538464,
+            "strictTopHitRate": 0.15384615384615385,
+            "downsideHitRateLift": 1.939799331103679,
+            "strictTopHitRateLift": 1.982905982905983,
+            "downsideHitRateDelta": 0.1863395225464191,
+            "avgFwdRet5": 0.013808136792608753,
+            "medianFwdRet5": 0.015550812785673607,
+            "avgFwdMin5": -0.024044323594921386,
+            "avgFwdMax5": 0.037655022105090794,
+            "maxAdverseContinuation": 0.1467897397732818
+          }
+        },
+        "z20_gt_1_5": {
+          "label": "z20 > 1.5",
+          "daily": {
+            "signalCount": 41,
+            "eventCount": 12,
+            "evaluatedCount": 40,
+            "downsideHitRate": 0.3,
+            "strictTopHitRate": 0.15,
+            "downsideHitRateLift": 1.5130434782608695,
+            "strictTopHitRateLift": 1.9333333333333331,
+            "downsideHitRateDelta": 0.10172413793103446,
+            "avgFwdRet5": 0.01716262552275956,
+            "medianFwdRet5": 0.032918059452533566,
+            "avgFwdMin5": -0.023903004848403027,
+            "avgFwdMax5": 0.03994577417082822,
+            "maxAdverseContinuation": 0.10022938756032951
+          },
+          "event": {
+            "signalCount": 41,
+            "eventCount": 12,
+            "evaluatedCount": 12,
+            "downsideHitRate": 0.4166666666666667,
+            "strictTopHitRate": 0.16666666666666666,
+            "downsideHitRateLift": 2.101449275362319,
+            "strictTopHitRateLift": 2.148148148148148,
+            "downsideHitRateDelta": 0.21839080459770116,
+            "avgFwdRet5": 0.0002500161229751034,
+            "medianFwdRet5": 0.010227490036109788,
+            "avgFwdMin5": -0.036352479053535586,
+            "avgFwdMax5": 0.03092780048016977,
+            "maxAdverseContinuation": 0.10021874982924417
+          }
+        },
+        "gap20_gt_4": {
+          "label": "gap20 > 4%",
+          "daily": {
+            "signalCount": 63,
+            "eventCount": 12,
+            "evaluatedCount": 61,
+            "downsideHitRate": 0.19672131147540983,
+            "strictTopHitRate": 0.09836065573770492,
+            "downsideHitRateLift": 0.99215965787598,
+            "strictTopHitRateLift": 1.26775956284153,
+            "downsideHitRateDelta": -0.0015545505935556925,
+            "avgFwdRet5": 0.029178146945807427,
+            "medianFwdRet5": 0.03795565043320903,
+            "avgFwdMin5": -0.014674959718779846,
+            "avgFwdMax5": 0.05149284573281052,
+            "maxAdverseContinuation": 0.1467897397732818
+          },
+          "event": {
+            "signalCount": 63,
+            "eventCount": 12,
+            "evaluatedCount": 12,
+            "downsideHitRate": 0.08333333333333333,
+            "strictTopHitRate": 0.08333333333333333,
+            "downsideHitRateLift": 0.42028985507246375,
+            "strictTopHitRateLift": 1.074074074074074,
+            "downsideHitRateDelta": -0.1149425287356322,
+            "avgFwdRet5": 0.034259688252624404,
+            "medianFwdRet5": 0.029306168331179827,
+            "avgFwdMin5": -0.010126370583513086,
+            "avgFwdMax5": 0.05723244409454498,
+            "maxAdverseContinuation": 0.1467897397732818
+          }
+        },
+        "roc20_gt_10": {
+          "label": "ROC20 > 10%",
+          "daily": {
+            "signalCount": 60,
+            "eventCount": 11,
+            "evaluatedCount": 58,
+            "downsideHitRate": 0.20689655172413793,
+            "strictTopHitRate": 0.08620689655172414,
+            "downsideHitRateLift": 1.0434782608695652,
+            "strictTopHitRateLift": 1.1111111111111112,
+            "downsideHitRateDelta": 0.008620689655172403,
+            "avgFwdRet5": 0.031021766491543597,
+            "medianFwdRet5": 0.03910644271326935,
+            "avgFwdMin5": -0.015202305156005945,
+            "avgFwdMax5": 0.0554871223391516,
+            "maxAdverseContinuation": 0.1467897397732818
+          },
+          "event": {
+            "signalCount": 60,
+            "eventCount": 11,
+            "evaluatedCount": 11,
+            "downsideHitRate": 0.18181818181818182,
+            "strictTopHitRate": 0.09090909090909091,
+            "downsideHitRateLift": 0.9169960474308301,
+            "strictTopHitRateLift": 1.1717171717171717,
+            "downsideHitRateDelta": -0.0164576802507837,
+            "avgFwdRet5": 0.04073706192837043,
+            "medianFwdRet5": 0.04752391536466849,
+            "avgFwdMin5": -0.017285097253061456,
+            "avgFwdMax5": 0.05155234868144882,
+            "maxAdverseContinuation": 0.09526304768829941
+          }
+        },
+        "rollover_after_setup": {
+          "label": "C < MA5 after OH/RF setup",
+          "daily": {
+            "signalCount": 34,
+            "eventCount": 12,
+            "evaluatedCount": 30,
+            "downsideHitRate": 0.26666666666666666,
+            "strictTopHitRate": 0.06666666666666667,
+            "downsideHitRateLift": 1.344927536231884,
+            "strictTopHitRateLift": 0.8592592592592592,
+            "downsideHitRateDelta": 0.06839080459770114,
+            "avgFwdRet5": 0.0318196840377176,
+            "medianFwdRet5": 0.030714981257314866,
+            "avgFwdMin5": -0.015393831355256142,
+            "avgFwdMax5": 0.05282867662002818,
+            "maxAdverseContinuation": 0.15509492514619327
+          },
+          "event": {
+            "signalCount": 34,
+            "eventCount": 12,
+            "evaluatedCount": 12,
+            "downsideHitRate": 0.08333333333333333,
+            "strictTopHitRate": 0.08333333333333333,
+            "downsideHitRateLift": 0.42028985507246375,
+            "strictTopHitRateLift": 1.074074074074074,
+            "downsideHitRateDelta": -0.1149425287356322,
+            "avgFwdRet5": 0.038844006826267256,
+            "medianFwdRet5": 0.03792692505717876,
+            "avgFwdMin5": -0.00032125577151390083,
+            "avgFwdMax5": 0.05574979681977063,
+            "maxAdverseContinuation": 0.12062450208825415
+          }
+        },
+        "vix_confirmation_simple": {
+          "label": "VIX > VIX_MA5 and delta VIX > 0",
+          "daily": {
+            "signalCount": 43,
+            "eventCount": 16,
+            "evaluatedCount": 40,
+            "downsideHitRate": 0.175,
+            "strictTopHitRate": 0.1,
+            "downsideHitRateLift": 0.8826086956521738,
+            "strictTopHitRateLift": 1.288888888888889,
+            "downsideHitRateDelta": -0.023275862068965536,
+            "avgFwdRet5": 0.02955477243467721,
+            "medianFwdRet5": 0.033521546888875764,
+            "avgFwdMin5": -0.013343727925531634,
+            "avgFwdMax5": 0.0522950888962614,
+            "maxAdverseContinuation": 0.15509492514619327
+          },
+          "event": {
+            "signalCount": 43,
+            "eventCount": 16,
+            "evaluatedCount": 16,
+            "downsideHitRate": 0.125,
+            "strictTopHitRate": 0.125,
+            "downsideHitRateLift": 0.6304347826086957,
+            "strictTopHitRateLift": 1.6111111111111112,
+            "downsideHitRateDelta": -0.07327586206896552,
+            "avgFwdRet5": 0.030565383826232168,
+            "medianFwdRet5": 0.02973593399891017,
+            "avgFwdMin5": -0.009163231724174326,
+            "avgFwdMax5": 0.05555472706233654,
+            "maxAdverseContinuation": 0.15245749868501135
+          }
+        }
+      }
+    },
+    "ex_2026": {
+      "label": "Pre-2026 history",
+      "start": null,
+      "end": "2025-12-31",
+      "sampleCount": 5240,
+      "baseRates": {
+        "downsideHitRate": 0.12729007633587786,
+        "strictTopHitRate": 0.08625954198473282
+      },
+      "ruleStats": {
+        "oh_ge_4": {
+          "label": "OH >= 4",
+          "daily": {
+            "signalCount": 633,
+            "eventCount": 218,
+            "evaluatedCount": 633,
+            "downsideHitRate": 0.12954186413902052,
+            "strictTopHitRate": 0.08846761453396525,
+            "downsideHitRateLift": 1.0176902070291869,
+            "strictTopHitRateLift": 1.0255980091990662,
+            "downsideHitRateDelta": 0.0022517878031426686,
+            "avgFwdRet5": -0.004592066721802676,
+            "medianFwdRet5": 0.00038298454383789426,
+            "avgFwdMin5": -0.021821475544377272,
+            "avgFwdMax5": 0.014800105973405055,
+            "maxAdverseContinuation": 0.13094684430826464
+          },
+          "event": {
+            "signalCount": 633,
+            "eventCount": 218,
+            "evaluatedCount": 218,
+            "downsideHitRate": 0.15137614678899083,
+            "strictTopHitRate": 0.11926605504587157,
+            "downsideHitRateLift": 1.189221902810063,
+            "strictTopHitRateLift": 1.382641877080458,
+            "downsideHitRateDelta": 0.02408607045311298,
+            "avgFwdRet5": -0.0024835424729038,
+            "medianFwdRet5": 0.0017530279749025102,
+            "avgFwdMin5": -0.021654418612180707,
+            "avgFwdMax5": 0.01557989192108763,
+            "maxAdverseContinuation": 0.12272158952460477
+          }
+        },
+        "oh_eq_5": {
+          "label": "OH = 5",
+          "daily": {
+            "signalCount": 216,
+            "eventCount": 93,
+            "evaluatedCount": 216,
+            "downsideHitRate": 0.18981481481481483,
+            "strictTopHitRate": 0.11574074074074074,
+            "downsideHitRateLift": 1.4911988450219336,
+            "strictTopHitRateLift": 1.341773189118322,
+            "downsideHitRateDelta": 0.06252473847893697,
+            "avgFwdRet5": -0.01088560592917589,
+            "medianFwdRet5": -0.0024525202421651904,
+            "avgFwdMin5": -0.027957017675209795,
+            "avgFwdMax5": 0.013563453918069825,
+            "maxAdverseContinuation": 0.12272158952460477
+          },
+          "event": {
+            "signalCount": 216,
+            "eventCount": 93,
+            "evaluatedCount": 93,
+            "downsideHitRate": 0.20430107526881722,
+            "strictTopHitRate": 0.12903225806451613,
+            "downsideHitRateLift": 1.6050039496380843,
+            "strictTopHitRateLift": 1.495860690836426,
+            "downsideHitRateDelta": 0.07701099893293936,
+            "avgFwdRet5": -0.0034160324901388655,
+            "medianFwdRet5": 0.004149258856521731,
+            "avgFwdMin5": -0.024955931407823897,
+            "avgFwdMax5": 0.01750182735234304,
+            "maxAdverseContinuation": 0.12272158952460477
+          }
+        },
+        "rf_ge_4": {
+          "label": "RF >= 4",
+          "daily": {
+            "signalCount": 1431,
+            "eventCount": 390,
+            "evaluatedCount": 1431,
+            "downsideHitRate": 0.17889587700908455,
+            "strictTopHitRate": 0.12508735150244585,
+            "downsideHitRateLift": 1.4054188838494799,
+            "strictTopHitRateLift": 1.4501277032584432,
+            "downsideHitRateDelta": 0.05160580067320669,
+            "avgFwdRet5": 0.004964747163235432,
+            "medianFwdRet5": 0.0064601337965488614,
+            "avgFwdMin5": -0.020421773478823915,
+            "avgFwdMax5": 0.02559514801827198,
+            "maxAdverseContinuation": 0.1655799550777417
+          },
+          "event": {
+            "signalCount": 1431,
+            "eventCount": 390,
+            "evaluatedCount": 390,
+            "downsideHitRate": 0.18205128205128204,
+            "strictTopHitRate": 0.1282051282051282,
+            "downsideHitRateLift": 1.4302079729366086,
+            "strictTopHitRateLift": 1.486271840254141,
+            "downsideHitRateDelta": 0.05476120571540419,
+            "avgFwdRet5": 0.00424362078877235,
+            "medianFwdRet5": 0.007277408607073599,
+            "avgFwdMin5": -0.02128714867209888,
+            "avgFwdMax5": 0.02484699843495623,
+            "maxAdverseContinuation": 0.1591004693131861
+          }
+        },
+        "rf_eq_5": {
+          "label": "RF = 5",
+          "daily": {
+            "signalCount": 333,
+            "eventCount": 118,
+            "evaluatedCount": 333,
+            "downsideHitRate": 0.2012012012012012,
+            "strictTopHitRate": 0.13213213213213212,
+            "downsideHitRateLift": 1.5806511158834997,
+            "strictTopHitRateLift": 1.5317972840096734,
+            "downsideHitRateDelta": 0.07391112486532334,
+            "avgFwdRet5": 0.005183579424781104,
+            "medianFwdRet5": 0.007345284664959317,
+            "avgFwdMin5": -0.021688488002510237,
+            "avgFwdMax5": 0.026402091539383173,
+            "maxAdverseContinuation": 0.1655799550777417
+          },
+          "event": {
+            "signalCount": 333,
+            "eventCount": 118,
+            "evaluatedCount": 118,
+            "downsideHitRate": 0.19491525423728814,
+            "strictTopHitRate": 0.11864406779661017,
+            "downsideHitRateLift": 1.5312682641729984,
+            "strictTopHitRateLift": 1.3754312284385781,
+            "downsideHitRateDelta": 0.06762517790141029,
+            "avgFwdRet5": 0.00426893974244617,
+            "medianFwdRet5": 0.008240752485625835,
+            "avgFwdMin5": -0.022164312184194297,
+            "avgFwdMax5": 0.026174777391639942,
+            "maxAdverseContinuation": 0.1364134050338175
+          }
+        },
+        "setup_ge_4": {
+          "label": "OH >= 4 OR RF >= 4",
+          "daily": {
+            "signalCount": 2045,
+            "eventCount": 549,
+            "evaluatedCount": 2045,
+            "downsideHitRate": 0.16136919315403422,
+            "strictTopHitRate": 0.11149144254278728,
+            "downsideHitRateLift": 1.2677279941936124,
+            "strictTopHitRateLift": 1.292511413549127,
+            "downsideHitRateDelta": 0.03407911681815637,
+            "avgFwdRet5": 0.0022914920950845227,
+            "medianFwdRet5": 0.0037780820528423575,
+            "avgFwdMin5": -0.020652284442851967,
+            "avgFwdMax5": 0.022420193210359225,
+            "maxAdverseContinuation": 0.1655799550777417
+          },
+          "event": {
+            "signalCount": 2045,
+            "eventCount": 549,
+            "evaluatedCount": 549,
+            "downsideHitRate": 0.16757741347905283,
+            "strictTopHitRate": 0.12568306010928962,
+            "downsideHitRateLift": 1.3165002198354376,
+            "strictTopHitRateLift": 1.4570337056917646,
+            "downsideHitRateDelta": 0.04028733714317498,
+            "avgFwdRet5": 0.001896280571671707,
+            "medianFwdRet5": 0.004589159994278003,
+            "avgFwdMin5": -0.022074005023046104,
+            "avgFwdMax5": 0.020867398979810017,
+            "maxAdverseContinuation": 0.14859952512029584
+          }
+        },
+        "red_zone": {
+          "label": "OH = 5 OR RF = 5",
+          "daily": {
+            "signalCount": 549,
+            "eventCount": 207,
+            "evaluatedCount": 549,
+            "downsideHitRate": 0.19672131147540983,
+            "strictTopHitRate": 0.12568306010928962,
+            "downsideHitRateLift": 1.545456779806818,
+            "strictTopHitRateLift": 1.4570337056917646,
+            "downsideHitRateDelta": 0.06943123513953198,
+            "avgFwdRet5": -0.0011387230095626312,
+            "medianFwdRet5": 0.0007172524228120647,
+            "avgFwdMin5": -0.024154794758982197,
+            "avgFwdMax5": 0.02135082427853858,
+            "maxAdverseContinuation": 0.1655799550777417
+          },
+          "event": {
+            "signalCount": 549,
+            "eventCount": 207,
+            "evaluatedCount": 207,
+            "downsideHitRate": 0.2028985507246377,
+            "strictTopHitRate": 0.12560386473429952,
+            "downsideHitRateLift": 1.5939856158877086,
+            "strictTopHitRateLift": 1.4561156000171007,
+            "downsideHitRateDelta": 0.07560847438875984,
+            "avgFwdRet5": 0.0002456081258112631,
+            "medianFwdRet5": 0.004149258856521731,
+            "avgFwdMin5": -0.0240616380515003,
+            "avgFwdMax5": 0.02171059344574631,
+            "maxAdverseContinuation": 0.1364134050338175
+          }
+        },
+        "confirmed_top_risk": {
+          "label": "confirmed_top_risk",
+          "daily": {
+            "signalCount": 1833,
+            "eventCount": 524,
+            "evaluatedCount": 1833,
+            "downsideHitRate": 0.15984724495362793,
+            "strictTopHitRate": 0.10747408619749045,
+            "downsideHitRateLift": 1.2557714596057128,
+            "strictTopHitRateLift": 1.2459385214045353,
+            "downsideHitRateDelta": 0.03255716861775007,
+            "avgFwdRet5": 0.0057315464308696365,
+            "medianFwdRet5": 0.0064503065000092175,
+            "avgFwdMin5": -0.01942758817999732,
+            "avgFwdMax5": 0.025746666285050537,
+            "maxAdverseContinuation": 0.17252203217965723
+          },
+          "event": {
+            "signalCount": 1833,
+            "eventCount": 524,
+            "evaluatedCount": 524,
+            "downsideHitRate": 0.15267175572519084,
+            "strictTopHitRate": 0.10877862595419847,
+            "downsideHitRateLift": 1.199400299850075,
+            "strictTopHitRateLift": 1.261061946902655,
+            "downsideHitRateDelta": 0.02538167938931299,
+            "avgFwdRet5": 0.004065075104486711,
+            "medianFwdRet5": 0.005566796664885798,
+            "avgFwdMin5": -0.019684244197929173,
+            "avgFwdMax5": 0.023638585720649433,
+            "maxAdverseContinuation": 0.1655799550777417
+          }
+        },
+        "rsi14_gt_70": {
+          "label": "RSI14 > 70",
+          "daily": {
+            "signalCount": 281,
+            "eventCount": 89,
+            "evaluatedCount": 281,
+            "downsideHitRate": 0.08896797153024912,
+            "strictTopHitRate": 0.06405693950177936,
+            "downsideHitRateLift": 0.698938786834341,
+            "strictTopHitRateLift": 0.7426069977639909,
+            "downsideHitRateDelta": -0.03832210480562874,
+            "avgFwdRet5": -0.007603927532900509,
+            "medianFwdRet5": -0.002491563629573368,
+            "avgFwdMin5": -0.020093440829567887,
+            "avgFwdMax5": 0.011507871181523159,
+            "maxAdverseContinuation": 0.07267490194153403
+          },
+          "event": {
+            "signalCount": 281,
+            "eventCount": 89,
+            "evaluatedCount": 89,
+            "downsideHitRate": 0.07865168539325842,
+            "strictTopHitRate": 0.0449438202247191,
+            "downsideHitRateLift": 0.6178933005407409,
+            "strictTopHitRateLift": 0.5210301282688675,
+            "downsideHitRateDelta": -0.04863839094261943,
+            "avgFwdRet5": -0.00928661695295638,
+            "medianFwdRet5": -0.000378321174227092,
+            "avgFwdMin5": -0.022153302941042816,
+            "avgFwdMax5": 0.010818058692877802,
+            "maxAdverseContinuation": 0.059373233022391725
+          }
+        },
+        "rsi5_gt_70": {
+          "label": "RSI5 > 70",
+          "daily": {
+            "signalCount": 1166,
+            "eventCount": 357,
+            "evaluatedCount": 1166,
+            "downsideHitRate": 0.11063464837049743,
+            "strictTopHitRate": 0.07718696397941681,
+            "downsideHitRateLift": 0.8691537593124536,
+            "strictTopHitRateLift": 0.8948223257790798,
+            "downsideHitRateDelta": -0.01665542796538043,
+            "avgFwdRet5": -0.002934097893224989,
+            "medianFwdRet5": 0.001055794068921534,
+            "avgFwdMin5": -0.01940073766873179,
+            "avgFwdMax5": 0.014380764135043344,
+            "maxAdverseContinuation": 0.13094684430826464
+          },
+          "event": {
+            "signalCount": 1166,
+            "eventCount": 357,
+            "evaluatedCount": 357,
+            "downsideHitRate": 0.12885154061624648,
+            "strictTopHitRate": 0.08403361344537816,
+            "downsideHitRateLift": 1.0122669757558196,
+            "strictTopHitRateLift": 0.9741949877296052,
+            "downsideHitRateDelta": 0.0015614642803686296,
+            "avgFwdRet5": -0.0019098956312562218,
+            "medianFwdRet5": 0.0026545316647705874,
+            "avgFwdMin5": -0.018910021215285996,
+            "avgFwdMax5": 0.015682052894516907,
+            "maxAdverseContinuation": 0.12272158952460477
+          }
+        },
+        "z20_gt_1_5": {
+          "label": "z20 > 1.5",
+          "daily": {
+            "signalCount": 918,
+            "eventCount": 287,
+            "evaluatedCount": 918,
+            "downsideHitRate": 0.12091503267973856,
+            "strictTopHitRate": 0.08169934640522876,
+            "downsideHitRateLift": 0.9499171982636133,
+            "strictTopHitRateLift": 0.9471340158482273,
+            "downsideHitRateDelta": -0.006375043656139293,
+            "avgFwdRet5": -0.003657190842959869,
+            "medianFwdRet5": 0.0009926874676488007,
+            "avgFwdMin5": -0.020593586984354255,
+            "avgFwdMax5": 0.014442085601060209,
+            "maxAdverseContinuation": 0.12416449714766076
+          },
+          "event": {
+            "signalCount": 918,
+            "eventCount": 287,
+            "evaluatedCount": 287,
+            "downsideHitRate": 0.1254355400696864,
+            "strictTopHitRate": 0.09059233449477352,
+            "downsideHitRateLift": 0.9854306296329187,
+            "strictTopHitRateLift": 1.050229718479233,
+            "downsideHitRateDelta": -0.0018545362661914477,
+            "avgFwdRet5": -0.0014675266098051938,
+            "medianFwdRet5": 0.0025180552865327055,
+            "avgFwdMin5": -0.0192898855869888,
+            "avgFwdMax5": 0.01607889942121302,
+            "maxAdverseContinuation": 0.12416449714766076
+          }
+        },
+        "gap20_gt_4": {
+          "label": "gap20 > 4%",
+          "daily": {
+            "signalCount": 1026,
+            "eventCount": 270,
+            "evaluatedCount": 1026,
+            "downsideHitRate": 0.13742690058479531,
+            "strictTopHitRate": 0.09649122807017543,
+            "downsideHitRateLift": 1.0796356207860982,
+            "strictTopHitRateLift": 1.1186151218754852,
+            "downsideHitRateDelta": 0.010136824248917459,
+            "avgFwdRet5": -0.001151450788289134,
+            "medianFwdRet5": 0.0015863686117359999,
+            "avgFwdMin5": -0.02164201622977535,
+            "avgFwdMax5": 0.017845977098379075,
+            "maxAdverseContinuation": 0.14871739275468698
+          },
+          "event": {
+            "signalCount": 1026,
+            "eventCount": 270,
+            "evaluatedCount": 270,
+            "downsideHitRate": 0.1259259259259259,
+            "strictTopHitRate": 0.1,
+            "downsideHitRateLift": 0.9892831362096729,
+            "strictTopHitRateLift": 1.1592920353982303,
+            "downsideHitRateDelta": -0.001364150409951942,
+            "avgFwdRet5": -0.0003554939243210898,
+            "medianFwdRet5": 0.00364110801769002,
+            "avgFwdMin5": -0.02115895976091507,
+            "avgFwdMax5": 0.017116697051707416,
+            "maxAdverseContinuation": 0.12416449714766076
+          }
+        },
+        "roc20_gt_10": {
+          "label": "ROC20 > 10%",
+          "daily": {
+            "signalCount": 574,
+            "eventCount": 160,
+            "evaluatedCount": 574,
+            "downsideHitRate": 0.15156794425087108,
+            "strictTopHitRate": 0.10104529616724739,
+            "downsideHitRateLift": 1.1907286774731103,
+            "strictTopHitRateLift": 1.171410070611452,
+            "downsideHitRateDelta": 0.02427786791499323,
+            "avgFwdRet5": -4.7920352119386283e-05,
+            "medianFwdRet5": 0.0026324588533065407,
+            "avgFwdMin5": -0.020780374720272443,
+            "avgFwdMax5": 0.02024557431183693,
+            "maxAdverseContinuation": 0.1591004693131861
+          },
+          "event": {
+            "signalCount": 574,
+            "eventCount": 160,
+            "evaluatedCount": 160,
+            "downsideHitRate": 0.1625,
+            "strictTopHitRate": 0.1125,
+            "downsideHitRateLift": 1.2766116941529237,
+            "strictTopHitRateLift": 1.304203539823009,
+            "downsideHitRateDelta": 0.03520992366412215,
+            "avgFwdRet5": 0.001298710087090356,
+            "medianFwdRet5": 0.006009573083017528,
+            "avgFwdMin5": -0.02044844855475396,
+            "avgFwdMax5": 0.019654409424756963,
+            "maxAdverseContinuation": 0.12272158952460477
+          }
+        },
+        "rollover_after_setup": {
+          "label": "C < MA5 after OH/RF setup",
+          "daily": {
+            "signalCount": 1231,
+            "eventCount": 438,
+            "evaluatedCount": 1231,
+            "downsideHitRate": 0.15597075548334688,
+            "strictTopHitRate": 0.10398050365556458,
+            "downsideHitRateLift": 1.2253174793594268,
+            "strictTopHitRateLift": 1.2054376972459258,
+            "downsideHitRateDelta": 0.028680679147469024,
+            "avgFwdRet5": 0.007981762176298212,
+            "medianFwdRet5": 0.009131903171638367,
+            "avgFwdMin5": -0.0180638308158039,
+            "avgFwdMax5": 0.027621996562914915,
+            "maxAdverseContinuation": 0.17252203217965723
+          },
+          "event": {
+            "signalCount": 1231,
+            "eventCount": 438,
+            "evaluatedCount": 438,
+            "downsideHitRate": 0.1415525114155251,
+            "strictTopHitRate": 0.10273972602739725,
+            "downsideHitRateLift": 1.1120467163678436,
+            "strictTopHitRateLift": 1.191053461025579,
+            "downsideHitRateDelta": 0.014262435079647251,
+            "avgFwdRet5": 0.006952236018740993,
+            "medianFwdRet5": 0.005832754845889632,
+            "avgFwdMin5": -0.01747599443232046,
+            "avgFwdMax5": 0.02557295510657303,
+            "maxAdverseContinuation": 0.17252203217965723
+          }
+        },
+        "vix_confirmation_simple": {
+          "label": "VIX > VIX_MA5 and delta VIX > 0",
+          "daily": {
+            "signalCount": 1712,
+            "eventCount": 612,
+            "evaluatedCount": 1712,
+            "downsideHitRate": 0.12558411214953272,
+            "strictTopHitRate": 0.08352803738317757,
+            "downsideHitRateLift": 0.9865978225840352,
+            "strictTopHitRateLift": 0.9683338847076339,
+            "downsideHitRateDelta": -0.001705964186345138,
+            "avgFwdRet5": 0.00627055764069776,
+            "medianFwdRet5": 0.006813604531036188,
+            "avgFwdMin5": -0.016893624325350964,
+            "avgFwdMax5": 0.02430806118192839,
+            "maxAdverseContinuation": 0.1873480889377872
+          },
+          "event": {
+            "signalCount": 1712,
+            "eventCount": 612,
+            "evaluatedCount": 612,
+            "downsideHitRate": 0.119281045751634,
+            "strictTopHitRate": 0.08333333333333333,
+            "downsideHitRateLift": 0.9370804793681592,
+            "strictTopHitRateLift": 0.9660766961651918,
+            "downsideHitRateDelta": -0.008009030584243862,
+            "avgFwdRet5": 0.005056346376925048,
+            "medianFwdRet5": 0.005485385575230373,
+            "avgFwdMin5": -0.017485355129688608,
+            "avgFwdMax5": 0.022760608060733184,
+            "maxAdverseContinuation": 0.1758893280632412
+          }
+        }
+      }
+    }
+  },
+  "thresholdSensitivity": [
+    {
+      "field": "z20",
+      "rule": "z20 > threshold",
+      "threshold": 1.0,
+      "signalCount": 1861,
+      "downsideHitRate": 0.11337990327780763,
+      "downsideLiftRatio": 0.8800909593564313,
+      "reportOnly": true
+    },
+    {
+      "field": "z20",
+      "rule": "z20 > threshold",
+      "threshold": 1.5,
+      "signalCount": 958,
+      "downsideHitRate": 0.12839248434237996,
+      "downsideLiftRatio": 0.9966234001996914,
+      "reportOnly": true
+    },
+    {
+      "field": "z20",
+      "rule": "z20 > threshold",
+      "threshold": 2.0,
+      "signalCount": 308,
+      "downsideHitRate": 0.12987012987012986,
+      "downsideLiftRatio": 1.0080933559194427,
+      "reportOnly": true
+    },
+    {
+      "field": "rsi5",
+      "rule": "RSI5 > threshold",
+      "threshold": 65,
+      "signalCount": 1702,
+      "downsideHitRate": 0.11692126909518213,
+      "downsideLiftRatio": 0.9075801699620225,
+      "reportOnly": true
+    },
+    {
+      "field": "rsi5",
+      "rule": "RSI5 > threshold",
+      "threshold": 70,
+      "signalCount": 1213,
+      "downsideHitRate": 0.11541632316570487,
+      "downsideLiftRatio": 0.8958982998195874,
+      "reportOnly": true
+    },
+    {
+      "field": "rsi5",
+      "rule": "RSI5 > threshold",
+      "threshold": 75,
+      "signalCount": 787,
+      "downsideHitRate": 0.10546378653113088,
+      "downsideLiftRatio": 0.8186435371894739,
+      "reportOnly": true
+    },
+    {
+      "field": "gap20",
+      "rule": "gap20 > threshold",
+      "threshold": 0.03,
+      "signalCount": 1564,
+      "downsideHitRate": 0.12276214833759591,
+      "downsideLiftRatio": 0.9529189369509619,
+      "reportOnly": true
+    },
+    {
+      "field": "gap20",
+      "rule": "gap20 > threshold",
+      "threshold": 0.04,
+      "signalCount": 1087,
+      "downsideHitRate": 0.140754369825207,
+      "downsideLiftRatio": 1.0925802967881286,
+      "reportOnly": true
+    },
+    {
+      "field": "gap20",
+      "rule": "gap20 > threshold",
+      "threshold": 0.05,
+      "signalCount": 711,
+      "downsideHitRate": 0.16455696202531644,
+      "downsideLiftRatio": 1.2773436066776738,
+      "reportOnly": true
+    },
+    {
+      "field": "roc20",
+      "rule": "ROC20 > threshold",
+      "threshold": 0.08,
+      "signalCount": 966,
+      "downsideHitRate": 0.14389233954451347,
+      "downsideLiftRatio": 1.1169382182614698,
+      "reportOnly": true
+    },
+    {
+      "field": "roc20",
+      "rule": "ROC20 > threshold",
+      "threshold": 0.1,
+      "signalCount": 632,
+      "downsideHitRate": 0.15664556962025317,
+      "downsideLiftRatio": 1.2159328563566318,
+      "reportOnly": true
+    },
+    {
+      "field": "roc20",
+      "rule": "ROC20 > threshold",
+      "threshold": 0.12,
+      "signalCount": 413,
+      "downsideHitRate": 0.18886198547215496,
+      "downsideLiftRatio": 1.4660069480998,
+      "reportOnly": true
+    }
+  ],
+  "notes": [
+    "Event-level statistics are the primary interpretation because adjacent daily signals are clustered with a 5-trading-day cooldown.",
+    "Threshold sensitivity is diagnostic only; default thresholds remain fixed round-number constants from the methodology."
+  ]
+}

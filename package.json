@@ -1,0 +1,11 @@
+{
+  "name": "risk-score",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Static SOX top-risk score dashboard for GitHub Pages.",
+  "scripts": {
+    "test": "node --check assets/app.js && node --check scripts/verify.mjs && node --check scripts/static-smoke.mjs && node scripts/verify.mjs && node scripts/static-smoke.mjs",
+    "test:python": "PYTHONDONTWRITEBYTECODE=1 python3 -B -m unittest discover -s tests",
+    "test:deploy-sync": "PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/verify_quant_dashboard_sync.py"
+  }
+}

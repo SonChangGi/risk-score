@@ -1,0 +1,7 @@
+# Python bytecode / test cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local OS/editor debris
+.DS_Store
