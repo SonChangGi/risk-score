@@ -6,8 +6,26 @@
     summary: `${DATA_BASE}risk_score_summary.json`,
     daily: `${DATA_BASE}risk_score_daily.json`,
     backtest: `${DATA_BASE}risk_score_backtest.json`,
+    assetUniverse: `${DATA_BASE}asset_universe.json`,
+    assetSummary: `${DATA_BASE}asset_risk_summary.json`,
+    assetDaily: `${DATA_BASE}asset_risk_daily.json`,
+    assetBacktest: `${DATA_BASE}asset_risk_backtest.json`,
+    dataStatus: `${DATA_BASE}data_status.json`,
   };
-  const state = { summary: null, daily: null, backtest: null, mode: 'event', period: 'full' };
+  const state = {
+    summary: null,
+    daily: null,
+    backtest: null,
+    assetUniverse: null,
+    assetSummary: null,
+    assetDaily: null,
+    assetBacktest: null,
+    dataStatus: null,
+    selectedSymbol: 'SOX',
+    mode: 'event',
+    period: 'full',
+    labelMode: 'volAdjusted',
+  };
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => Array.from(document.querySelectorAll(selector));
 
@@ -20,7 +38,14 @@
     $$('.toggle').forEach((button) => {
       button.addEventListener('click', () => {
         state.mode = button.dataset.mode || 'event';
-        $$('.toggle').forEach((item) => item.classList.toggle('active', item === button));
+        $$('.toggle[data-mode]').forEach((item) => item.classList.toggle('active', item === button));
+        renderBacktest();
+      });
+    });
+    $$('.label-toggle').forEach((button) => {
+      button.addEventListener('click', () => {
+        state.labelMode = button.dataset.labelMode || 'volAdjusted';
+        $$('.label-toggle').forEach((item) => item.classList.toggle('active', item === button));
         renderBacktest();
       });
     });
@@ -31,19 +56,26 @@
         renderBacktest();
       });
     }
+    const assetSelect = $('#asset-select');
+    if (assetSelect) {
+      assetSelect.addEventListener('change', () => selectAsset(assetSelect.value));
+    }
   }
 
   async function loadData() {
     setStatus('loading', '정적 JSON을 불러오는 중...');
     try {
-      const [summary, daily, backtest] = await Promise.all([
+      const [summary, backtest, assetUniverse, assetSummary, assetDaily, assetBacktest, dataStatus] = await Promise.all([
         fetchJson(FILES.summary),
-        fetchJson(FILES.daily),
         fetchJson(FILES.backtest),
+        fetchJson(FILES.assetUniverse),
+        fetchJson(FILES.assetSummary),
+        fetchJson(FILES.assetDaily),
+        fetchJson(FILES.assetBacktest),
+        fetchJson(FILES.dataStatus),
       ]);
-      state.summary = summary;
-      state.daily = daily;
-      state.backtest = backtest;
+      Object.assign(state, { summary, backtest, assetUniverse, assetSummary, assetDaily, assetBacktest, dataStatus });
+      state.selectedSymbol = assetSummary.defaultSymbol || 'SOX';
       renderAll();
     } catch (error) {
       setStatus('error', `데이터 로드 실패: ${error.message}`);
@@ -57,16 +89,28 @@
     return response.json();
   }
 
+  function selectAsset(symbol) {
+    if (!symbol || symbol === state.selectedSymbol) return;
+    state.selectedSymbol = symbol;
+    state.period = 'full';
+    renderAll();
+    const section = $('#summary');
+    if (section) section.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
+
   function renderAll() {
-    const current = state.summary?.riskScore?.current || {};
-    setStatus(current.actionLevel || 'ok', `Data as of ${formatDate(state.summary.dataAsOf)} · generated ${formatDateTime(state.summary.generatedAt)}`);
+    const current = selectedCurrent();
+    setStatus(current.actionLevel || 'ok', `Selected ${state.selectedSymbol} · Data as of ${formatDate(current.date || state.summary?.dataAsOf)} · generated ${formatDateTime(state.summary?.generatedAt)}`);
+    renderAssetSelector();
+    renderRiskMatrix();
     renderSummary(current);
-    renderFactors(state.summary?.riskScore?.factorBreakdown || []);
-    renderCharts(state.daily?.rows || []);
+    renderFactors(selectedFactors());
+    renderCharts(selectedRows());
     setupBacktestPeriods();
     renderBacktest();
-    renderHistory(state.summary?.riskScore?.recentSignals || []);
+    renderHistory(selectedHistory());
     renderSources(state.summary);
+    updateSelectedCopy(current);
   }
 
   function setStatus(level, text) {
@@ -82,14 +126,66 @@
     }
   }
 
+  function renderAssetSelector() {
+    const select = $('#asset-select');
+    if (select && state.assetUniverse?.assets) {
+      const groups = groupAssets(state.assetUniverse.assets);
+      select.innerHTML = Object.entries(groups).map(([group, assets]) => `<optgroup label="${escapeAttribute(group)}">${assets.map((asset) => `<option value="${escapeAttribute(asset.symbol)}">${escapeHtml(asset.symbol)} · ${escapeHtml(asset.name || '')}</option>`).join('')}</optgroup>`).join('');
+      select.value = state.selectedSymbol;
+    }
+    const chips = $('#asset-group-chips');
+    if (chips && state.assetUniverse?.assets) {
+      const groups = groupAssets(state.assetUniverse.assets);
+      chips.innerHTML = Object.entries(groups).map(([group, assets]) => `<span class="status-chip neutral">${escapeHtml(group)} ${assets.length}</span>`).join('');
+    }
+  }
+
+  function renderRiskMatrix() {
+    const target = $('#asset-matrix-body');
+    if (!target) return;
+    const rows = state.assetSummary?.matrix || [];
+    if (!rows.length) {
+      target.innerHTML = '<tr><td colspan="13">Asset matrix unavailable.</td></tr>';
+      return;
+    }
+    target.innerHTML = rows.map((row) => `
+      <tr class="asset-row ${row.symbol === state.selectedSymbol ? 'selected' : ''}" data-symbol="${escapeAttribute(row.symbol)}" tabindex="0">
+        <td class="text-cell"><strong>${escapeHtml(row.symbol)}</strong><small>${escapeHtml(row.name || '')}</small></td>
+        <td>${escapeHtml(row.type || '-')}</td>
+        <td>${formatPrice(row.latest)} ${escapeHtml(row.scoreCurrency || '')}</td>
+        <td>${formatPercent(row.oneDayReturn, 2)}</td>
+        <td>${scoreText(row.ohScore)}</td>
+        <td>${scoreText(row.rfScore)}</td>
+        <td>${badge(scoreText(row.topRiskScore), scoreTone(row.topRiskScore))}</td>
+        <td>${escapeHtml(row.regime || '-')}</td>
+        <td>${yesNo(row.confirmed)}</td>
+        <td>${yesNo(row.sectorContext)}</td>
+        <td>${yesNo(row.actionable)}</td>
+        <td>${escapeHtml(row.relativeStrength || '-')}</td>
+        <td>${badge(row.dataStatus || '-', row.dataStatus === 'ok' ? 'normal' : 'warning')} ${badge(row.confidence || '-', row.confidence === 'high' ? 'normal' : row.confidence === 'medium' ? 'watch' : 'warning')}</td>
+      </tr>
+    `).join('');
+    $$('#asset-matrix-body .asset-row').forEach((row) => {
+      row.addEventListener('click', () => selectAsset(row.dataset.symbol));
+      row.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') selectAsset(row.dataset.symbol);
+      });
+    });
+  }
+
   function renderSummary(current) {
+    const isSox = state.selectedSymbol === 'SOX';
     const cards = [
-      ['SOX latest close', formatPrice(current.close), formatDate(current.date), 'neutral'],
-      ['1D return', formatPercent(current.oneDayReturn, 2), 'Daily close 기준', toneForReturn(current.oneDayReturn)],
-      ['OH Score', scoreText(current.ohScore), '과열형 top model', scoreTone(current.ohScore)],
-      ['RF Score', scoreText(current.rfScore), '반등 실패형 top model', scoreTone(current.rfScore)],
+      [`${state.selectedSymbol} latest`, formatPrice(current.close), `${formatDate(current.date)} · ${current.scoreCurrency || 'USD'}`, 'neutral'],
+      ['1D return', formatPercent(current.oneDayReturn, 2), 'Daily adjusted close 기준', toneForReturn(current.oneDayReturn)],
+      ['OH Score', scoreText(current.ohScore), isSox ? '기존 SOX 과열형 top model' : '자산 변동성 조정 OH model', scoreTone(current.ohScore)],
+      ['RF Score', scoreText(current.rfScore), isSox ? '기존 SOX 반등 실패형 top model' : '자산 변동성/상대강도 RF model', scoreTone(current.rfScore)],
       ['Top Risk Score', scoreText(current.topRiskScore), `Regime: ${current.regime || '-'}`, scoreTone(current.topRiskScore)],
-      ['Confirmation', current.confirmation ? 'ON' : 'OFF', current.confirmation ? 'confirmed_top_risk = true' : 'leading setup only or inactive', current.confirmation ? 'confirmed-red' : 'normal'],
+      ['Confirmation', current.confirmation ? 'ON' : 'OFF', isSox ? 'SOX confirmed_top_risk' : 'asset_confirmed_risk', current.confirmation ? 'confirmed-red' : 'normal'],
+      ['Sector context', current.sectorContextActive ? 'ON' : 'OFF', 'SOX setup/confirmed 또는 VIX/VXN rising', current.sectorContextActive ? 'high-risk' : 'normal'],
+      ['Actionable signal', current.assetActionableSignal ? 'ON' : 'OFF', 'asset confirmation + sector context', current.assetActionableSignal ? 'confirmed-red' : 'neutral'],
+      ['Relative strength', current.relativeStrengthStatus || (isSox ? 'sector baseline' : '-'), current.benchmarkSymbol ? `Benchmark: ${current.benchmarkSymbol}` : 'SOX baseline', toneForRelative(current.relativeStrengthStatus)],
+      ['Data status', selectedAssetSummary()?.dataStatus?.status || 'ok', selectedWarnings().slice(0, 1).join(' ') || selectedAssetSummary()?.confidence?.level || 'available', selectedAssetSummary()?.dataStatus?.status === 'ok' ? 'normal' : 'warning'],
     ];
     const target = $('#summary-cards');
     if (target) {
@@ -104,7 +200,8 @@
     const action = $('#current-action');
     if (action) {
       action.className = `action-card ${classForLevel(current.actionLevel)}`;
-      action.innerHTML = `<span>${escapeHtml(current.actionLabel || 'Unknown')}</span><strong>${escapeHtml(current.regime || '-')}</strong><p>${escapeHtml(current.actionText || '데이터를 확인할 수 없습니다.')}</p>`;
+      const warning = selectedWarnings().length ? `<p class="warning-text">${escapeHtml(selectedWarnings()[0])}</p>` : '';
+      action.innerHTML = `<span>${escapeHtml(current.actionLabel || 'Unknown')}</span><strong>${escapeHtml(current.regime || '-')}</strong><p>${escapeHtml(current.actionText || '데이터를 확인할 수 없습니다.')}</p>${warning}`;
     }
   }
 
@@ -129,21 +226,32 @@
 
   function renderCharts(rows) {
     const scored = rows.filter((row) => finite(row.close)).slice(-520);
+    const symbol = state.selectedSymbol;
     renderLineChart('#price-chart', scored, [
-      { key: 'close', label: 'SOX Close', color: '#7dd3fc' },
+      { key: 'close', label: `${symbol} Close`, color: '#7dd3fc' },
       { key: 'ma20', label: 'MA20', color: '#c4b5fd' },
       { key: 'ma50', label: 'MA50', color: '#86efac' },
-    ], markerRows(scored), { valueFormatter: formatPrice, yLabel: 'SOX' });
+    ], markerRows(scored), { valueFormatter: formatPrice, yLabel: symbol });
     renderLineChart('#score-chart', scored, [
       { key: 'oh_score', label: 'OH', color: '#fbbf24' },
       { key: 'rf_score', label: 'RF', color: '#fb7185' },
       { key: 'top_risk_score', label: 'Top', color: '#f4f4f5' },
     ], markerRows(scored), { minY: 0, maxY: 5, valueFormatter: (v) => `${v}/5`, yLabel: 'Score' });
-    renderLineChart('#vix-chart', scored, [
+    renderLineChart('#relative-chart', scored, [
+      { key: 'relative_strength', label: 'Relative strength', color: '#7dd3fc' },
+      { key: 'rs_ma20', label: 'RS MA20', color: '#c4b5fd' },
+      { key: 'rel_z20', label: 'RelZ20', color: '#fbbf24', axisHint: 'z' },
+    ], scored.filter((row) => row.rel_z20 >= 1 || row.rel_z20 <= -1).map((row) => ({ row, tone: row.rel_z20 >= 1 ? 'watch' : 'high-risk', label: `RelZ20 ${formatNumber(row.rel_z20)}` })), { valueFormatter: formatNumber, yLabel: 'RS' });
+    const volSeries = [
       { key: 'vix_close', label: 'VIX', color: '#fb7185' },
       { key: 'vix_ma5', label: 'VIX MA5', color: '#fbbf24' },
       { key: 'vix_ma20', label: 'VIX MA20', color: '#7dd3fc' },
-    ], scored.filter((row) => row.vix_confirmation || row.strong_vix_confirmation).map((row) => ({ row, tone: 'confirmed-red', label: row.strong_vix_confirmation ? 'Strong VIX confirmation' : 'VIX confirmation' })), { valueFormatter: formatNumber, yLabel: 'VIX' });
+    ];
+    if (scored.some((row) => finite(row.vxn_close))) {
+      volSeries.push({ key: 'vxn_close', label: 'VXN', color: '#c4b5fd' });
+      volSeries.push({ key: 'vxn_ma5', label: 'VXN MA5', color: '#86efac' });
+    }
+    renderLineChart('#vix-chart', scored, volSeries, scored.filter((row) => row.vix_rising || row.vxn_rising).map((row) => ({ row, tone: row.vxn_rising ? 'high-risk' : 'confirmed-red', label: row.vxn_rising ? 'VXN rising' : 'VIX rising' })), { valueFormatter: formatNumber, yLabel: 'Vol' });
   }
 
   function markerRows(rows) {
@@ -152,7 +260,8 @@
       if (row.oh_score >= 4) markers.push({ row, tone: 'watch', label: `OH ${row.oh_score}/5` });
       if (row.rf_score >= 4) markers.push({ row, tone: 'high-risk', label: `RF ${row.rf_score}/5` });
       if (row.top_risk_score === 5) markers.push({ row, tone: 'red-zone', label: 'Red Zone' });
-      if (row.confirmed_top_risk) markers.push({ row, tone: 'confirmed-red', label: 'Confirmed' });
+      if (row.asset_confirmed_risk || row.confirmed_top_risk) markers.push({ row, tone: 'confirmed-red', label: 'Confirmed' });
+      if (row.asset_actionable_signal) markers.push({ row, tone: 'confirmed-red', label: 'Actionable' });
       return markers;
     });
   }
@@ -163,7 +272,8 @@
     const width = 920;
     const height = 330;
     const margin = { top: 24, right: 28, bottom: 40, left: 66 };
-    const allValues = series.flatMap((item) => rows.map((row) => finite(row[item.key]) ? Number(row[item.key]) : null).filter((value) => value !== null));
+    const availableSeries = series.filter((item) => rows.some((row) => finite(row[item.key])));
+    const allValues = availableSeries.flatMap((item) => rows.map((row) => finite(row[item.key]) ? Number(row[item.key]) : null).filter((value) => value !== null));
     if (!rows.length || !allValues.length) {
       target.innerHTML = '<div class="empty-state">Chart data unavailable.</div>';
       return;
@@ -177,18 +287,21 @@
     const y = (value) => margin.top + (1 - ((value - domainMin) / Math.max(domainMax - domainMin, 0.000001))) * (height - margin.top - margin.bottom);
     const yTicks = buildTicks(domainMin, domainMax, 5);
     const grid = yTicks.map((tick) => `<g><line x1="${margin.left}" x2="${width - margin.right}" y1="${y(tick).toFixed(1)}" y2="${y(tick).toFixed(1)}"/><text x="${margin.left - 10}" y="${(y(tick) + 4).toFixed(1)}">${escapeHtml((options.valueFormatter || formatNumber)(tick))}</text></g>`).join('');
-    const lines = series.map((item) => {
+    const lines = availableSeries.map((item) => {
       const points = rows.map((row, index) => finite(row[item.key]) ? `${x(index).toFixed(1)},${y(row[item.key]).toFixed(1)}` : null).filter(Boolean).join(' ');
       return `<polyline points="${points}" fill="none" stroke="${item.color}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><title>${escapeHtml(item.label)}</title></polyline>`;
     }).join('');
     const markerSvg = markers.map((marker) => {
       const index = rows.indexOf(marker.row);
       if (index < 0) return '';
-      const value = finite(marker.row.top_risk_score) && selector === '#score-chart' ? marker.row.top_risk_score : marker.row.close ?? marker.row.vix_close;
+      let value = marker.row.close;
+      if (selector === '#score-chart') value = marker.row.top_risk_score;
+      if (selector === '#vix-chart') value = marker.row.vix_close ?? marker.row.vxn_close;
+      if (selector === '#relative-chart') value = marker.row.relative_strength ?? marker.row.rel_z20;
       if (!finite(value)) return '';
       return `<circle cx="${x(index).toFixed(1)}" cy="${y(value).toFixed(1)}" r="4.8" class="marker ${classForLevel(marker.tone)}"><title>${escapeHtml(`${marker.row.date}: ${marker.label}`)}</title></circle>`;
     }).join('');
-    const legend = series.map((item, index) => `<g transform="translate(${margin.left + index * 150},${height - 14})"><line x1="0" x2="22" y1="0" y2="0" stroke="${item.color}" stroke-width="3"/><text x="30" y="4">${escapeHtml(item.label)}</text></g>`).join('');
+    const legend = availableSeries.map((item, index) => `<g transform="translate(${margin.left + (index % 4) * 170},${height - 14 - Math.floor(index / 4) * 18})"><line x1="0" x2="22" y1="0" y2="0" stroke="${item.color}" stroke-width="3"/><text x="30" y="4">${escapeHtml(item.label)}</text></g>`).join('');
     const firstDate = rows[0]?.date || '';
     const lastDate = rows[rows.length - 1]?.date || '';
     target.innerHTML = `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${escapeHtml(options.yLabel || 'chart')} chart from ${escapeHtml(firstDate)} to ${escapeHtml(lastDate)}">
@@ -202,19 +315,33 @@
 
   function setupBacktestPeriods() {
     const select = $('#period-select');
-    if (!select || !state.backtest?.periods) return;
-    select.innerHTML = Object.entries(state.backtest.periods).map(([id, period]) => `<option value="${escapeAttribute(id)}">${escapeHtml(period.label || id)}</option>`).join('');
+    if (!select) return;
+    const periods = selectedBacktestPeriods();
+    select.innerHTML = Object.entries(periods).map(([id, period]) => `<option value="${escapeAttribute(id)}">${escapeHtml(period.label || id)}</option>`).join('');
+    if (!periods[state.period]) state.period = 'full';
     select.value = state.period;
   }
 
   function renderBacktest() {
     const target = $('#backtest-table-body');
-    if (!target || !state.backtest?.periods) return;
-    const period = state.backtest.periods[state.period] || state.backtest.periods.full;
+    if (!target) return;
+    const selected = selectedBacktest();
+    const period = selected?.periods?.[state.period] || selected?.periods?.full;
     const mode = state.mode;
-    const base = period.baseRates || {};
-    $('#backtest-caption').textContent = `${period.label || state.period} · ${mode === 'event' ? 'de-clustered event-level' : 'daily signal'} statistics · base downside ${formatPercent(base.downsideHitRate, 1)}`;
-    const rows = state.backtest.rules.map((rule) => ({ rule, stats: period.ruleStats?.[rule.id]?.[mode] || {} }));
+    const isSox = state.selectedSymbol === 'SOX';
+    const labelMode = isSox ? null : state.labelMode;
+    const statsRoot = isSox ? period : period?.[labelMode];
+    const base = statsRoot?.baseRates || {};
+    const rules = isSox ? state.backtest?.rules || [] : state.assetBacktest?.rules || [];
+    const caption = $('#backtest-caption');
+    if (caption) caption.textContent = `${state.selectedSymbol} · ${period?.label || state.period} · ${mode === 'event' ? 'de-clustered event-level' : 'daily signal'} · ${isSox ? 'absolute -5% label' : labelMode} · base downside ${formatPercent(base.downsideHitRate, 1)}`;
+    $$('.label-toggle').forEach((button) => { button.disabled = isSox; button.classList.toggle('disabled', isSox); });
+    if (!statsRoot?.ruleStats) {
+      target.innerHTML = '<tr><td colspan="9">Backtest data unavailable.</td></tr>';
+      renderSensitivity(isSox);
+      return;
+    }
+    const rows = rules.map((rule) => ({ rule, stats: statsRoot.ruleStats?.[rule.id]?.[mode] || {} }));
     target.innerHTML = rows.map(({ rule, stats }) => `
       <tr>
         <td class="text-cell"><strong>${escapeHtml(rule.label)}</strong><small>${escapeHtml(rule.description)}</small></td>
@@ -228,12 +355,17 @@
         <td>${formatPercent(stats.maxAdverseContinuation, 2)}</td>
       </tr>
     `).join('');
-    renderSensitivity();
+    renderSensitivity(isSox);
   }
 
-  function renderSensitivity() {
+  function renderSensitivity(isSox) {
     const target = $('#sensitivity-panel');
     if (!target) return;
+    if (!isSox) {
+      const asset = selectedAssetSummary();
+      target.innerHTML = `<article class="notice"><h3>Vol-adjusted label 우선</h3><p>개별 종목/ETF는 고정 -5%와 변동성 조정 label을 함께 제공하지만, 주 평가는 변동성 조정 event-level입니다.</p></article>${(asset?.warnings || []).slice(0, 4).map((item) => `<article class="mini-card"><span>Data warning</span><strong>주의</strong><small>${escapeHtml(item)}</small></article>`).join('')}`;
+      return;
+    }
     const items = (state.backtest?.thresholdSensitivity || []).filter((_, index) => index < 8);
     target.innerHTML = `<article class="notice"><h3>Threshold sensitivity는 보고용입니다</h3><p>아래 값은 default threshold를 자동 변경하지 않습니다. YTD 결과에 맞춘 threshold tuning은 금지됩니다.</p></article>` + items.map((item) => `
       <article class="mini-card"><span>${escapeHtml(item.field)} ${escapeHtml(String(item.threshold))}</span><strong>${formatPercent(item.downsideHitRate, 1)}</strong><small>signals ${formatInteger(item.signalCount)} · lift ${formatLift(item.downsideLiftRatio)}</small></article>
@@ -244,7 +376,7 @@
     const target = $('#history-table-body');
     if (!target) return;
     if (!rows.length) {
-      target.innerHTML = '<tr><td colspan="12">No recent setup signals.</td></tr>';
+      target.innerHTML = '<tr><td colspan="13">No recent setup signals.</td></tr>';
       return;
     }
     target.innerHTML = rows.map((row) => `
@@ -255,11 +387,12 @@
         <td>${scoreText(row.rfScore)}</td>
         <td>${scoreText(row.topRiskScore)}</td>
         <td>${badge(row.confirmation ? 'confirmed' : 'setup', row.confirmation ? 'bad' : 'watch')}</td>
+        <td>${row.actionable === undefined ? '-' : yesNo(row.actionable)}</td>
         <td>${formatPercent(row.fwdMin5, 2)}</td>
         <td>${formatPercent(row.fwdMax5, 2)}</td>
         <td>${formatPercent(row.fwdRet5, 2)}</td>
         <td>${yesNo(row.downsideHit)}</td>
-        <td>${yesNo(row.strictTopHit)}</td>
+        <td>${yesNo(row.volAdjDownsideHit)}</td>
         <td>${escapeHtml(row.regime || '-')}</td>
       </tr>
     `).join('');
@@ -269,11 +402,73 @@
     const target = $('#source-notes');
     if (!target || !summary) return;
     const optional = summary.riskScore?.optionalSources || [];
-    const limitations = summary.limitations || [];
+    const limitations = [
+      ...(summary.limitations || []),
+      '개별 종목/ETF score는 volatility-adjusted momentum/label과 relative strength를 사용하며, SOX 원본 threshold를 그대로 최적화하지 않습니다.',
+      '한국 종목은 USDKRW가 가능하면 USD 환산 후 SOX 대비 relative strength를 계산하고, FX가 없으면 KOSPI local fallback을 표시합니다.',
+      'SNDK와 DRAM은 standalone history가 짧아 backtest confidence가 낮게 표시될 수 있습니다.',
+    ];
     target.innerHTML = `
       <article class="notice"><h3>Limitations</h3><ul>${limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></article>
       ${optional.map((source) => `<article class="source-item"><strong>${escapeHtml(source.name)}</strong><span>${escapeHtml(source.status)}</span><p>${escapeHtml(source.note || '')}</p>${source.url ? `<a href="${escapeAttribute(source.url)}">source</a>` : ''}</article>`).join('')}
     `;
+  }
+
+  function updateSelectedCopy(current) {
+    const summaryTitle = $('#summary-title');
+    if (summaryTitle) summaryTitle.textContent = `${state.selectedSymbol} 현재 고점 리스크`;
+    const chartTitle = $('#charts-title');
+    if (chartTitle) chartTitle.textContent = `${state.selectedSymbol} 가격·점수·상대강도·VIX/VXN`;
+    const assetName = $('#selected-asset-name');
+    if (assetName) assetName.textContent = `${state.selectedSymbol} · ${current.name || selectedAssetSummary()?.name || ''}`;
+  }
+
+  function selectedCurrent() {
+    const asset = selectedAssetSummary();
+    if (asset?.current) return asset.current;
+    return state.summary?.riskScore?.current || {};
+  }
+
+  function selectedAssetSummary() {
+    return state.assetSummary?.bySymbol?.[state.selectedSymbol];
+  }
+
+  function selectedFactors() {
+    if (state.selectedSymbol === 'SOX') return state.summary?.riskScore?.factorBreakdown || [];
+    return selectedAssetSummary()?.factorBreakdown || [];
+  }
+
+  function selectedRows() {
+    if (state.selectedSymbol === 'SOX') return state.assetDaily?.rowsBySymbol?.SOX || [];
+    return state.assetDaily?.rowsBySymbol?.[state.selectedSymbol] || [];
+  }
+
+  function selectedHistory() {
+    if (state.selectedSymbol === 'SOX') return state.summary?.riskScore?.recentSignals || [];
+    return selectedAssetSummary()?.recentSignals || [];
+  }
+
+  function selectedWarnings() {
+    return selectedAssetSummary()?.warnings || [];
+  }
+
+  function selectedBacktest() {
+    if (state.selectedSymbol === 'SOX') return state.backtest;
+    return state.assetBacktest?.assets?.[state.selectedSymbol];
+  }
+
+  function selectedBacktestPeriods() {
+    if (state.selectedSymbol === 'SOX') return state.backtest?.periods || {};
+    return state.assetBacktest?.periods || selectedBacktest()?.periods || {};
+  }
+
+  function groupAssets(assets) {
+    return assets.reduce((acc, asset) => {
+      const group = asset.group || asset.type || 'Assets';
+      acc[group] ||= [];
+      acc[group].push(asset);
+      return acc;
+    }, {});
   }
 
   function buildTicks(min, max, count) {
@@ -283,10 +478,10 @@
 
   function classForLevel(level) {
     const value = String(level || '').toLowerCase();
-    if (['confirmed-red', 'red-zone', 'bad', 'error'].includes(value)) return 'bad';
-    if (['high-risk'].includes(value)) return 'high-risk';
-    if (['watch', 'warning'].includes(value)) return 'watch';
-    if (['normal', 'ok'].includes(value)) return 'good';
+    if (['confirmed-red', 'red-zone', 'bad', 'error', 'low'].includes(value)) return 'bad';
+    if (['high-risk', 'degraded'].includes(value)) return 'high-risk';
+    if (['watch', 'warning', 'medium'].includes(value)) return 'watch';
+    if (['normal', 'ok', 'high'].includes(value)) return 'good';
     return 'neutral';
   }
 
@@ -307,9 +502,19 @@
     return 'good';
   }
 
+  function toneForRelative(value) {
+    const text = String(value || '').toLowerCase();
+    if (text.includes('strong')) return 'watch';
+    if (text.includes('weak')) return 'high-risk';
+    if (text.includes('unavailable')) return 'warning';
+    return 'neutral';
+  }
+
   function modelTone(model) {
     if (model === 'OH') return 'watch';
     if (model === 'RF') return 'bad';
+    if (model === 'Confirmation') return 'high-risk';
+    if (model === 'Sector') return 'neutral';
     return 'neutral';
   }
 
@@ -328,8 +533,8 @@
 
   function formatFactorValue(value, factor) {
     if (!finite(value)) return '-';
-    if (/rsi|score/i.test(factor)) return formatNumber(value);
-    if (/gap|roc|drawdown|rebound|ret|slope/i.test(factor)) return formatPercent(value, 2);
+    if (/rsi|score|z20|z$/i.test(factor)) return formatNumber(value);
+    if (/gap|roc|drawdown|rebound|ret|slope|rv|dd/i.test(factor)) return formatPercent(value, 2);
     return formatNumber(value);
   }
 
@@ -378,6 +583,6 @@
   }
 
   if (typeof window !== 'undefined') {
-    window.__riskScoreApp = { renderSummary, renderFactors, renderBacktest, FILES };
+    window.__riskScoreApp = { renderSummary, renderFactors, renderBacktest, FILES, selectAsset };
   }
 })();

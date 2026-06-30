@@ -1,14 +1,16 @@
 # risk-score
 
-SOX Index 단기 고점 위험을 뉴스가 아닌 가격·추세·변동성 기반으로 스코어링하는 정적 GitHub Pages 대시보드입니다.
+SOX Index 단기 고점 위험을 뉴스가 아닌 가격·추세·변동성 기반으로 스코어링하고, 동일한 risk-overlay 구조를 반도체 개별 종목/ETF까지 확장한 정적 GitHub Pages 대시보드입니다.
 
 ## What it shows
 
-- **OH Score (0~5)**: 강한 상승 추세 말미의 과열형 top risk.
-- **RF Score (0~5)**: 손상된 추세에서 반등이 MA20/MA50 저항에 막히는 rebound-failure risk.
+- **SOX OH/RF Score (0~5)**: 기존 SOX 과열형 top risk와 rebound-failure risk model을 그대로 유지합니다.
+- **Asset OH/RF Score (0~5)**: 개별 종목/ETF에는 volatility-adjusted momentum(`ROC20Z`)과 relative strength(`RelZ20`)를 적용합니다.
 - **Top Risk Score**: `max(OH Score, RF Score)`.
-- **Confirmation**: 최근 setup 이후 MA5 하회, 큰 하락일, VIX 상승 확인, 또는 RF-specific rollover.
-- **Backtest**: 신호 후 미래 5거래일 downside/strict top label, daily statistics, 5D cooldown event-level statistics, base-rate lift.
+- **Sector context**: SOX high-risk/confirmed 상태, VIX rising, optional VXN rising을 자산 신호의 context로 표시합니다.
+- **Confirmation vs Actionable**: `asset_confirmed_risk`(자산 자체 rollover)와 `asset_actionable_signal`(자산 confirmation + sector context)을 분리합니다.
+- **Backtest**: 신호 후 미래 5거래일 absolute downside/strict top과 volatility-adjusted label, daily statistics, 5D cooldown event-level statistics, base-rate lift.
+- **Universe matrix**: SOX, MU, INTC, MRVL, WDC, SNDK, STX, 005930.KS, 000660.KS, SOXX, SMH, XSD, PSI, DRAM을 한눈에 비교합니다.
 
 본 페이지는 투자 조언이 아니라 개인 리서치용 risk overlay입니다.
 
@@ -18,6 +20,10 @@ Required generated-data sources:
 
 - SOX daily close: FRED `NASDAQSOX` (`https://fred.stlouisfed.org/graph/fredgraph.csv?id=NASDAQSOX`)
 - VIX daily close: FRED `VIXCLS` (`https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS`)
+- Optional VXN close: FRED `VXNCLS` (`https://fred.stlouisfed.org/graph/fredgraph.csv?id=VXNCLS`)
+- US stock/ETF adjusted close: Yahoo chart endpoint used only by the local update script.
+- Korean stock adjusted close: Yahoo chart endpoint (`005930.KS`, `000660.KS`) plus `KRW=X` for USD conversion when available; `^KS11` is the local benchmark fallback.
+- Manual fallback: `data/risk-score/manual_prices/{symbol}.csv` or `public/data/risk-score/manual_prices/{symbol}.csv` with `date, open, high, low, close, adj_close, volume`.
 
 Optional/source-note only in v1:
 
@@ -47,11 +53,18 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/update_risk_score_data.py
 
 Outputs:
 
-- `data/risk-score/risk_score_daily.json`
-- `data/risk-score/risk_score_summary.json`
-- `data/risk-score/risk_score_backtest.json`
+- Existing SOX contract files:
+  - `data/risk-score/risk_score_daily.json`
+  - `data/risk-score/risk_score_summary.json`
+  - `data/risk-score/risk_score_backtest.json`
+- New multi-asset files:
+  - `data/risk-score/asset_universe.json`
+  - `data/risk-score/asset_risk_daily.json`
+  - `data/risk-score/asset_risk_summary.json`
+  - `data/risk-score/asset_risk_backtest.json`
+  - `data/risk-score/data_status.json`
 
-`risk_score_summary.json` follows the Quant Dashboard `quant-research-summary` contract so the central hub can show OH/RF/top/confirmation metrics.
+`risk_score_summary.json` follows the Quant Dashboard `quant-research-summary` contract so the central hub can show OH/RF/top/confirmation metrics. The multi-asset extension adds new files rather than renaming existing fields.
 
 ## Deploy/sync to Quant Dashboard route
 
@@ -61,7 +74,7 @@ The requested public route is:
 https://sonchanggi.github.io/quant-dashboard/risk-score/
 ```
 
-Because the current `risk-score` repo has no remote, the implementation keeps this repo as the source of truth and mirrors deployable static files into the Quant Dashboard Pages tree:
+The implementation keeps this repo as the source of truth and mirrors deployable static files into the Quant Dashboard Pages tree:
 
 ```bash
 python3 scripts/sync_to_quant_dashboard.py
@@ -73,7 +86,7 @@ Default target:
 /Users/changgison/projects/quant-dashboard.omx-worktrees/launch-feat-quant-dashboard/risk-score/
 ```
 
-Only `index.html`, `assets/`, and `data/` are synced.
+Only `index.html`, `assets/`, and `data/` are synced. The central Quant Dashboard project/link/summary contract is otherwise kept intact.
 
 ## Verification
 
@@ -94,7 +107,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/verify_quant_dashboard_sync.py
 
 Daily close only. No future data is used for signals.
 
-Core indicators: `MA5`, `MA20`, `MA50`, `STD20`, `z20`, `ROC10`, `ROC20`, `gap20`, `drawdown50`, `rebound20`, `MA20_slope5`, `RSI5`, `RSI14`.
+Core SOX indicators: `MA5`, `MA20`, `MA50`, `STD20`, `z20`, `ROC10`, `ROC20`, `gap20`, `drawdown50`, `rebound20`, `MA20_slope5`, `RSI5`, `RSI14`. Asset indicators add `RV20`, `ROC20Z`, `DD50Z`, `Rebound20Z`, `Relative Strength`, `RelZ20`, and RS MA slopes.
 
 OH Score:
 
@@ -124,17 +137,54 @@ confirmed_top_risk = confirmed_general OR confirmed_rf
 
 where common confirmation checks price rollover, large down day, and VIX rising above MA5.
 
+Asset OH Score:
+
+```text
+1[z20 > 1.5]
++ 1[RSI5 > 70]
++ 1[ROC20Z > 1.25]
++ 1[P >= 0.995 * High20]
++ 1[RelZ20 > 1.0]
+```
+
+Asset RF Score:
+
+```text
+1[P < MA50 OR DD50Z < -1.0]
++ 1[Rebound20Z > 0.75]
++ 1[near MA20/MA50 resistance]
++ 1[ROC20Z < 0.5 OR MA20_slope5 < 0]
++ 1[RS < RS_MA20 OR RS_MA20_slope5 < 0]
+```
+
+Asset confirmation/actionability:
+
+```text
+asset_confirmed_risk = recent_asset_setup AND (P < MA5 OR ret_1 <= -max(2%, 0.75*RV20) OR RS < RS_MA5)
+asset_actionable_signal = asset_confirmed_risk AND sector_context_active
+```
+
+Vol-adjusted label:
+
+```text
+vol_adj_downside = fwd_min_5 <= -1.5 * RV20 * sqrt(5)
+vol_adj_strict_top = fwd_max_5 <= 0.5 * RV20 * sqrt(5) AND vol_adj_downside
+```
+
 ## Known limitations
 
 - FRED/Nasdaq/CBOE source data can lag or revise.
 - Leading score can fire before a top is confirmed.
 - Backtest hit rates describe historical distributions and are not future-performance guarantees.
 - Optional sentiment/fundamental panels are not in v1 main score.
+- Yahoo chart adjusted-close access is no-key and best-effort; manual CSV fallback exists for provider outages.
+- Korean FX mismatch is handled by USDKRW when available; if FX is unavailable, local KOSPI relative strength is shown with warning instead of pretending KRW/SOX comparability.
+- SNDK and DRAM have short standalone histories, so event-level confidence is flagged low until more data accumulates.
 - Public deployment is served from the Quant Dashboard subtree; run the sync command plus `verify_quant_dashboard_sync.py` before publishing to prevent canonical/deploy drift.
 
 ## Future improvements
 
 - Manual AAII/CNN CSV adapters for optional sentiment panels.
-- SOXX benchmark overlay from a stable free source.
+- Per-asset lazy JSON splitting if the universe grows materially beyond the default 14 symbols.
 - Fundamental revision/valuation divergence panel for 1~3 month cycle risk.
 - Screenshot-based visual regression after public deployment.

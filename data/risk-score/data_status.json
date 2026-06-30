@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "contract": "risk-score-data-status",
+  "projectId": "risk-score",
+  "generatedAt": "2026-06-30T03:57:54Z",
+  "status": "ok",
+  "requiredUniverseCount": 14,
+  "availableAssetCount": 14,
+  "sourceStatus": {
+    "context": {
+      "sox": {
+        "status": "ok",
+        "source": "FRED NASDAQSOX",
+        "rowCount": 5673
+      },
+      "vix": {
+        "status": "ok",
+        "source": "FRED VIXCLS",
+        "rowCount": 9487
+      },
+      "vxn": {
+        "status": "ok",
+        "source": "FRED VXNCLS",
+        "rowCount": 6627
+      },
+      "kospi": {
+        "status": "ok",
+        "source": "yahoo_chart",
+        "providerSymbol": "^KS11",
+        "rowCount": 5545
+      },
+      "usdkrw": {
+        "status": "ok",
+        "source": "yahoo_chart",
+        "providerSymbol": "KRW=X",
+        "rowCount": 5833
+      }
+    },
+    "assets": {
+      "SOX": {
+        "status": "ok",
+        "source": "FRED NASDAQSOX",
+        "rowCount": 5362
+      },
+      "MU": {
+        "status": "ok",
+        "source": "yahoo_chart",
+        "providerSymbol": "MU",
+        "rowCount": 5657,
+        "computedRowCount": 5657
+      },
+      "INTC": {
+        "status": "ok",
+        "source": "yahoo_chart",
+        "providerSymbol": "INTC",
+        "rowCount": 5657,
+        "computedRowCount": 5657
+      },
+      "MRVL": {
+        "status": "ok",
+        "source": "yahoo_chart",
+        "providerSymbol": "MRVL",
+        "rowCount": 5657,
+        "computedRowCount": 5657
+      },
+      "WDC": {
+        "status": "ok",
+        "source": "yahoo_chart",
+        "providerSymbol": "WDC",
+        "rowCount": 5657,
+        "computedRowCount": 5657
+      },
+      "SNDK": {
+        "status": "ok",
+        "source": "yahoo_chart",
+        "providerSymbol": "SNDK",
+        "rowCount": 344,
+        "computedRowCount": 344
+      },
+      "STX": {
+        "status": "ok",
+        "source": "yahoo_chart",
+        "providerSymbol": "STX",
+        "rowCount": 5657,
+        "computedRowCount": 5657
+      },
+      "005930.KS": {
+        "status": "ok",
+        "source": "yahoo_chart",
+        "providerSymbol": "005930.KS",
+        "rowCount": 5580,
+        "computedRowCount": 5580
+      },
+      "000660.KS": {
+        "status": "ok",
+        "source": "yahoo_chart",
+        "providerSymbol": "000660.KS",
+        "rowCount": 5580,
+        "computedRowCount": 5580
+      },
+      "SOXX": {
+        "status": "ok",
+        "source": "yahoo_chart",
+        "providerSymbol": "SOXX",
+        "rowCount": 5657,
+        "computedRowCount": 5657
+      },
+      "SMH": {
+        "status": "ok",
+        "source": "yahoo_chart",
+        "providerSymbol": "SMH",
+        "rowCount": 5657,
+        "computedRowCount": 5657
+      },
+      "XSD": {
+        "status": "ok",
+        "source": "yahoo_chart",
+        "providerSymbol": "XSD",
+        "rowCount": 5130,
+        "computedRowCount": 5130
+      },
+      "PSI": {
+        "status": "ok",
+        "source": "yahoo_chart",
+        "providerSymbol": "PSI",
+        "rowCount": 5286,
+        "computedRowCount": 5286
+      },
+      "DRAM": {
+        "status": "ok",
+        "source": "yahoo_chart",
+        "providerSymbol": "DRAM",
+        "rowCount": 60,
+        "computedRowCount": 60
+      }
+    }
+  }
+}

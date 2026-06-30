@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from risk_score.asset_model import export_asset_json_outputs, load_universe_config
 from risk_score.model import export_json_outputs, fetch_fred_series, run_pipeline
 
 
@@ -30,6 +31,9 @@ def main() -> int:
     parser.add_argument('--output-dir', default=str(ROOT / 'data' / 'risk-score'))
     parser.add_argument('--sox-csv', type=Path, help='Optional local FRED-format NASDAQSOX CSV fixture')
     parser.add_argument('--vix-csv', type=Path, help='Optional local FRED-format VIXCLS CSV fixture')
+    parser.add_argument('--vxn-csv', type=Path, help='Optional local FRED-format VXNCLS CSV fixture')
+    parser.add_argument('--universe-config', type=Path, default=ROOT / 'config' / 'asset_universe.json')
+    parser.add_argument('--skip-assets', action='store_true', help='Only export canonical SOX JSON files')
     args = parser.parse_args()
 
     if args.sox_csv:
@@ -44,6 +48,25 @@ def main() -> int:
 
     rows = run_pipeline(sox_rows, vix_rows)
     paths = export_json_outputs(rows, args.output_dir)
+    if not args.skip_assets:
+        if args.vxn_csv:
+            vxn_rows = read_series_csv(args.vxn_csv, 'VXNCLS')
+        else:
+            try:
+                vxn_rows = fetch_fred_series('VXNCLS')
+            except Exception as exc:  # noqa: BLE001 - VXN is optional; asset export degrades to VIX-only context.
+                print(f'optional VXN unavailable: {type(exc).__name__}: {exc}')
+                vxn_rows = None
+        config = load_universe_config(args.universe_config)
+        asset_paths = export_asset_json_outputs(
+            sox_rows,
+            vix_rows,
+            args.output_dir,
+            config=config,
+            sox_scored_rows=rows,
+            vxn_rows=vxn_rows,
+        )
+        paths.update(asset_paths)
     for key, path in paths.items():
         print(f'{key}: {path}')
     latest = next(row for row in reversed(rows) if row.get('top_risk_score') is not None)

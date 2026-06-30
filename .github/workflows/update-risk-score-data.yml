@@ -1,4 +1,4 @@
-name: Refresh Risk Score Source Data
+name: Refresh SOX/Asset Risk Score Source Data
 
 on:
   workflow_dispatch:
@@ -33,9 +33,9 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add data/risk-score
-            git commit -m "Refresh SOX risk score source data" \
-              -m "Constraint: FRED public CSV endpoints only; no API secrets." \
-              -m "Directive: Sync generated files into quant-dashboard/risk-score before public Pages deployment." \
+            git commit -m "Refresh SOX and asset risk-score source data" \
+              -m "Constraint: FRED public CSV plus no-key Yahoo/manual price adapters; no API secrets." \
+              -m "Directive: Sync generated SOX and asset files into quant-dashboard/risk-score before public Pages deployment." \
               -m "Confidence: high" \
               -m "Scope-risk: narrow" \
               -m "Tested: python3 -m unittest discover -s tests; npm test"

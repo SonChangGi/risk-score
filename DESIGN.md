@@ -4,7 +4,7 @@
 - Status: Active
 - Last refreshed: 2026-06-30
 - Primary product surfaces:
-  - `index.html` SOX Top Risk Score static page
+  - `index.html` SOX & Asset Top Risk Score static page
   - `assets/styles.css` risk-score visual system
   - `assets/app.js` static JSON renderer and SVG charts
   - `data/risk-score/*.json` generated public payloads
@@ -23,15 +23,15 @@
 
 ## Product goals
 - Goals:
-  - Show current SOX short-term top risk from price/trend/volatility only.
+  - Show current SOX and selected semiconductor-related asset short-term top risk from price/trend/volatility/relative strength only.
   - Preserve economic interpretation by separating Overheated-top and Rebound-failure models.
   - Make confirmation filters and historical event-level hit rates visible before action copy.
   - Fit visually and operationally inside the Quant Dashboard static Pages family.
 - Non-goals:
   - No news/NLP model, no intraday trading signal, no threshold tuning to recent outcomes, no direct investment advice.
-  - Optional sentiment and fundamental data are documented/adapter-ready only; v1 main score remains SOX+VIX.
+  - Optional sentiment and fundamental data are documented/adapter-ready only; SOX main score remains SOX+VIX while the asset extension adds generated Yahoo/manual price adapters.
 - Success signals:
-  - Latest close/OH/RF/top/confirmation render from generated JSON.
+  - Latest close/OH/RF/top/confirmation/actionable status render from generated JSON.
   - Backtest tables show daily and declustered event statistics across full/recent/YTD/ex-2026 windows.
   - Quant Dashboard can link to `/quant-dashboard/risk-score/` and summarize the Risk Score payload without importing local sibling source.
 
@@ -45,16 +45,18 @@
 - Key contexts of use: daily GitHub Pages read, local refresh/script execution, mobile scan of current risk, desktop review of backtest tables.
 
 ## Information architecture
-- Primary navigation: top `← Back to Quant Dashboard` link plus section anchors for Summary, Factors, Charts, Backtest, Signals, Methodology.
+- Primary navigation: top `← Back to Quant Dashboard` link plus section anchors for Assets, Summary, Matrix, Factors, Charts, Backtest, Signals, Methodology.
 - Core routes/screens: single static page deployable at repo root or subdirectory `/quant-dashboard/risk-score/` with relative assets/data.
 - Content hierarchy:
   1. Header with latest date and source/freshness status.
-  2. Current risk summary cards and action overlay language.
-  3. Factor breakdown table with thresholds and model ownership.
-  4. Price/score/VIX charts with semantic markers.
-  5. Backtest summary toggle: event-level first, daily as secondary.
-  6. Signal history table.
-  7. Data/methodology/limitations and optional data adapters.
+  2. Asset selector and grouped universe chips.
+  3. Asset risk matrix.
+  4. Current risk summary cards and action overlay language.
+  5. Factor breakdown table with thresholds and model ownership.
+  6. Price/score/relative-strength/VIX-VXN charts with semantic markers.
+  7. Backtest toggles: event-level first, daily secondary, vol-adjusted label primary for assets.
+  8. Signal history table.
+  9. Data/methodology/limitations and optional data adapters.
 
 ## Design principles
 - Principle 1: Model separation before composite score.
@@ -75,10 +77,10 @@
 - Existing components to reuse:
   - Quant Dashboard/SOX-style hero, top nav, metric cards, `panel`, `table-wrap`, `status-chip`, `score-pill`, source/caveat panels.
 - New/changed components:
-  - Dual OH/RF risk cards and score rings.
+  - Asset selector, grouped universe chips, and clickable risk matrix.
   - Factor breakdown table with on/off badges and economic interpretation.
   - Lightweight SVG chart renderer for price/score/VIX with markers and `<title>` tooltips.
-  - Backtest mode toggle for event-level vs daily stats.
+  - Backtest mode toggles for event-level vs daily stats and absolute vs volatility-adjusted labels.
   - Signal history table with latest notable risk events.
   - Optional sentiment/fundamental adapter cards clearly marked inactive/manual.
 - Variants and states: loading, stale, degraded, normal, watch, high-risk, red-zone, confirmed-red, optional-unavailable.
@@ -118,7 +120,7 @@
 
 
 ## Model integrity checks
-- Default thresholds are literal fixed constants from the prompt and are never optimized by the update script.
+- Default SOX thresholds are literal fixed constants from the prompt and are never optimized by the update script. Asset thresholds are round-number volatility/relative-strength extensions, not fitted to YTD outcomes.
 - Backtest reporting must separate daily and declustered event-level statistics, with event-level treated as primary.
 - Period splits include full, recent 3 years, recent 1 year, YTD, and ex-2026; 2026/YTD cannot drive threshold changes.
 - Threshold sensitivity is a diagnostic table only and cannot feed model defaults.
@@ -130,5 +132,12 @@
 - Protected boundary: Quant Dashboard changes are limited to the Risk Score project entry/link/card, summary adapter/fallback/parser/renderer, tests strictly needed for that new adapter/link, and the `risk-score/` deploy subtree. Existing sibling project outputs/adapters/methodology must not be changed.
 
 ## Open questions
-- [x] Actual deployment owner/path: canonical source stays in `risk-score`; deployable static files are synced into `/Users/changgison/projects/quant-dashboard.omx-worktrees/launch-feat-quant-dashboard/risk-score/` to serve `/quant-dashboard/risk-score/`. Current `risk-score` repo has no remote, so live deployment verification depends on committing/pushing the Quant Dashboard worktree. / owner: this implementation / impact: required for public route.
+- [x] Actual deployment owner/path: canonical source stays in `risk-score`; deployable static files are synced into `/Users/changgison/projects/quant-dashboard.omx-worktrees/launch-feat-quant-dashboard/risk-score/` to serve `/quant-dashboard/risk-score/`. Both canonical `risk-score` and Quant Dashboard worktrees have remotes; live deployment verification depends on pushing canonical updates and synced Quant Dashboard subtree updates. / owner: this implementation / impact: required for public route.
 - [ ] Whether AAII/CNN sentiment should become manually uploaded CSV adapters after v1. / owner: future / impact: optional panel only.
+
+## Multi-asset extension decisions
+- Universe ownership: `config/asset_universe.json`; model logic reads config and exports `asset_universe.json` for the browser.
+- Static boundary: FRED/Yahoo/manual CSV access is script/Python only. `assets/app.js` loads generated JSON files and contains no provider endpoints.
+- Korea FX policy: use `KRW=X` to convert KRW prices to USD for SOX-relative strength when available; otherwise use `^KS11` local benchmark and display warning.
+- Short-history policy: SNDK and DRAM carry explicit warnings and low-confidence flags regardless of current score quality.
+- Backtest policy: SOX keeps canonical fixed -5% backtest; individual assets expose absolute and vol-adjusted labels with vol-adjusted event-level as primary.

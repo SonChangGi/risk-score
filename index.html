@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="SOX Index 단기 고점 위험을 OH/RF score, confirmation, backtest로 확인하는 quant risk overlay dashboard" />
-  <title>SOX Top Risk Score</title>
+  <meta name="description" content="SOX Index와 반도체 개별 종목/ETF 단기 고점 위험을 OH/RF score, sector context, relative strength, backtest로 확인하는 quant risk overlay dashboard" />
+  <title>SOX & Asset Top Risk Score</title>
   <link rel="stylesheet" href="assets/styles.css" />
   <script src="assets/app.js" defer></script>
 </head>
@@ -12,7 +12,9 @@
   <header class="hero" aria-labelledby="page-title">
     <nav class="top-nav" aria-label="상위 대시보드 및 섹션 이동">
       <a href="https://sonchanggi.github.io/quant-dashboard/">← Back to Quant Dashboard</a>
+      <a href="#selector">Assets</a>
       <a href="#summary">Summary</a>
+      <a href="#matrix">Matrix</a>
       <a href="#factors">Factors</a>
       <a href="#charts">Charts</a>
       <a href="#backtest">Backtest</a>
@@ -21,10 +23,10 @@
     <div class="hero-grid">
       <div class="hero-main">
         <p class="eyebrow">Quant-based short-term top-risk overlay</p>
-        <h1 id="page-title">SOX Top Risk Score</h1>
+        <h1 id="page-title">SOX & Asset Top Risk Score</h1>
         <p class="hero-copy">
-          뉴스가 아니라 SOX 가격·추세·변동성으로 단기 고점 위험을 분리 측정합니다.
-          과열형 top model(OH)과 반등 실패형 top model(RF)을 따로 계산하고, 가격/VIX confirmation과 과거 5거래일 backtest를 함께 보여줍니다.
+          뉴스가 아니라 SOX sector context와 개별 종목/ETF의 가격·추세·변동성·relative strength로 단기 고점 위험을 분리 측정합니다.
+          SOX 원본 OH/RF model은 유지하고, 개별 자산에는 volatility-adjusted OH/RF, confirmation, actionable signal, 과거 5거래일 backtest를 함께 보여줍니다.
         </p>
         <div class="hero-actions">
           <a href="#summary" class="primary-button">현재 리스크 보기</a>
@@ -34,18 +36,54 @@
       <aside class="hero-note" aria-label="데이터 상태">
         <p class="eyebrow">Data Status</p>
         <div id="app-status" class="status-stack" aria-live="polite">정적 JSON을 불러오는 중...</div>
-        <p class="source-note">Core model: FRED NASDAQSOX + VIXCLS. Optional sentiment/fundamental data is displayed as future/manual adapters only.</p>
+        <p class="source-note">Core model: FRED NASDAQSOX + VIXCLS. Asset extension uses generated JSON from local FRED/Yahoo/manual adapters; browser does not fetch market providers directly.</p>
       </aside>
     </div>
   </header>
 
   <main>
+    <section class="section" id="selector" aria-labelledby="selector-title">
+      <div class="section-heading split-heading">
+        <div>
+          <p class="eyebrow">Asset Selector</p>
+          <h2 id="selector-title">SOX, 개별 종목, ETF 선택</h2>
+          <p>기본값은 SOX입니다. 개별 종목/ETF는 SOX를 sector context로 사용하고, 한국 종목은 USDKRW 환산 또는 KOSPI fallback 상태를 표시합니다.</p>
+        </div>
+        <div class="asset-picker" aria-label="분석 대상 선택">
+          <label for="asset-select">분석 대상</label>
+          <select id="asset-select"><option>Loading...</option></select>
+          <div id="asset-group-chips" class="chip-row"></div>
+        </div>
+      </div>
+      <div class="notice compact-notice">
+        <strong id="selected-asset-name">SOX</strong>
+        <span>SOX는 기존 fixed-threshold model, 개별 종목/ETF는 volatility-adjusted momentum·relative strength model을 사용합니다.</span>
+      </div>
+    </section>
+
+    <section class="section" id="matrix" aria-labelledby="matrix-title">
+      <div class="section-heading">
+        <p class="eyebrow">Asset Risk Matrix</p>
+        <h2 id="matrix-title">Universe 전체 리스크 현황</h2>
+        <p>행을 클릭하면 해당 자산으로 요약, factor, chart, backtest가 전환됩니다.</p>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <caption>Asset risk matrix</caption>
+          <thead>
+            <tr><th>Symbol</th><th>Type</th><th>Latest</th><th>1D return</th><th>OH</th><th>RF</th><th>Top Risk</th><th>Regime</th><th>Confirmed</th><th>Sector</th><th>Actionable</th><th>Relative Strength</th><th>Data</th></tr>
+          </thead>
+          <tbody id="asset-matrix-body"><tr><td colspan="13">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
     <section class="section" id="summary" aria-labelledby="summary-title">
       <div class="section-heading split-heading">
         <div>
           <p class="eyebrow">Current Risk</p>
-          <h2 id="summary-title">오늘의 SOX 고점 리스크</h2>
-          <p>Top Risk Score는 <code>max(OH Score, RF Score)</code>입니다. 경제적 해석을 위해 OH/RF는 항상 분리해서 표시합니다.</p>
+          <h2 id="summary-title">오늘의 선택 자산 고점 리스크</h2>
+          <p>Top Risk Score는 <code>max(OH Score, RF Score)</code>입니다. SOX는 기존 model, 자산은 volatility-adjusted model이며 OH/RF는 항상 분리해서 표시합니다.</p>
         </div>
         <div id="current-action" class="action-card">데이터 로딩 중</div>
       </div>
@@ -72,13 +110,14 @@
     <section class="section" id="charts" aria-labelledby="charts-title">
       <div class="section-heading">
         <p class="eyebrow">Charts</p>
-        <h2 id="charts-title">가격·점수·VIX 타임라인</h2>
-        <p>마커는 OH≥4, RF≥4, red zone, confirmed signal을 표시합니다. 복잡한 intraday signal이 아니라 daily close 기준입니다.</p>
+        <h2 id="charts-title">가격·점수·상대강도·VIX/VXN 타임라인</h2>
+        <p>마커는 OH≥4, RF≥4, red zone, confirmed/actionable signal을 표시합니다. 복잡한 intraday signal이 아니라 daily adjusted close 기준입니다.</p>
       </div>
       <div class="chart-grid">
-        <article class="panel"><div class="panel-header compact"><div><p class="eyebrow">SOX Price</p><h3>Close + MA20/MA50</h3></div></div><div id="price-chart" class="chart-card"></div></article>
+        <article class="panel"><div class="panel-header compact"><div><p class="eyebrow">Selected Price</p><h3>Close + MA20/MA50</h3></div></div><div id="price-chart" class="chart-card"></div></article>
         <article class="panel"><div class="panel-header compact"><div><p class="eyebrow">Scores</p><h3>OH/RF/Top Score</h3></div></div><div id="score-chart" class="chart-card"></div></article>
-        <article class="panel panel-wide"><div class="panel-header compact"><div><p class="eyebrow">Volatility</p><h3>VIX confirmation panel</h3></div></div><div id="vix-chart" class="chart-card"></div></article>
+        <article class="panel"><div class="panel-header compact"><div><p class="eyebrow">Relative Strength</p><h3>Asset / benchmark + RelZ20</h3></div></div><div id="relative-chart" class="chart-card"></div></article>
+        <article class="panel panel-wide"><div class="panel-header compact"><div><p class="eyebrow">Sector Context</p><h3>VIX/VXN confirmation panel</h3></div></div><div id="vix-chart" class="chart-card"></div></article>
       </div>
     </section>
 
@@ -94,6 +133,8 @@
           <select id="period-select"></select>
           <button type="button" class="toggle active" data-mode="event">Event-level</button>
           <button type="button" class="toggle" data-mode="daily">Daily</button>
+          <button type="button" class="toggle label-toggle active" data-label-mode="volAdjusted">Vol-adjusted</button>
+          <button type="button" class="toggle label-toggle" data-label-mode="absolute">Absolute</button>
         </div>
       </div>
       <div class="table-wrap">
@@ -116,8 +157,8 @@
       <div class="table-wrap">
         <table>
           <caption>Recent setup/confirmed signals</caption>
-          <thead><tr><th>Date</th><th>Close</th><th>OH</th><th>RF</th><th>Top</th><th>Confirmation</th><th>fwd min 5D</th><th>fwd max 5D</th><th>fwd ret 5D</th><th>Downside hit</th><th>Strict top</th><th>Regime</th></tr></thead>
-          <tbody id="history-table-body"><tr><td colspan="12">Loading...</td></tr></tbody>
+          <thead><tr><th>Date</th><th>Close</th><th>OH</th><th>RF</th><th>Top</th><th>Confirmation</th><th>Actionable</th><th>fwd min 5D</th><th>fwd max 5D</th><th>fwd ret 5D</th><th>Abs downside</th><th>Vol-adj downside</th><th>Regime</th></tr></thead>
+          <tbody id="history-table-body"><tr><td colspan="13">Loading...</td></tr></tbody>
         </table>
       </div>
     </section>
@@ -129,12 +170,12 @@
         <p>이 모델은 뉴스 기반 모델이 아니며 가격/변동성 기반 risk overlay입니다. Backtest 성과는 과거 분포 설명이지 투자 조언이 아닙니다.</p>
       </div>
       <div id="methodology-grid" class="method-grid">
-        <article><h3>Core data</h3><p>SOX close: FRED NASDAQSOX. VIX close: FRED VIXCLS. Browser는 generated JSON만 읽습니다.</p></article>
-        <article><h3>OH Score</h3><p>z20, RSI5, ROC20, gap20, High20 proximity를 합산한 0~5점 과열형 top model입니다.</p></article>
-        <article><h3>RF Score</h3><p>prior damage, rebound, MA resistance, weak momentum, VIX regime을 합산한 0~5점 반등 실패형 top model입니다.</p></article>
-        <article><h3>Confirmation</h3><p>최근 3거래일 setup 이후 MA5 하회, -2% 하락일, VIX 상승 confirmation 또는 RF-specific rollover를 확인합니다.</p></article>
+        <article><h3>Core data</h3><p>SOX close: FRED NASDAQSOX. VIX close: FRED VIXCLS. VXN은 optional context입니다. Browser는 generated JSON만 읽습니다.</p></article>
+        <article><h3>OH Score</h3><p>SOX는 기존 z20/RSI/ROC/gap/High20 model을 유지합니다. 자산 OH는 z20, RSI5, ROC20Z, High20 proximity, RelZ20을 합산합니다.</p></article>
+        <article><h3>RF Score</h3><p>자산 RF는 prior damage, volatility-adjusted rebound, MA resistance, weak momentum, relative weakness를 합산합니다.</p></article>
+        <article><h3>Confirmation</h3><p>자산 confirmed risk는 최근 setup 이후 MA5 하회, 변동성 조정 큰 하락일, 또는 relative strength 이탈로 확인합니다. actionable signal은 여기에 sector context를 더합니다.</p></article>
         <article><h3>Overfitting guard</h3><p>Threshold는 round number로 고정합니다. Sensitivity table은 보고용이며 default를 자동 변경하지 않습니다.</p></article>
-        <article><h3>Optional panels</h3><p>Nasdaq SOX, SOXX, AAII, CNN Fear & Greed, fundamental adapter는 v1 main score에 포함하지 않습니다.</p></article>
+        <article><h3>Korea / history caveats</h3><p>한국 종목은 USDKRW로 USD 환산 후 SOX 대비 RS를 계산하고, FX가 없으면 KOSPI local fallback을 warning으로 표시합니다. SNDK/DRAM은 short-history confidence flag를 표시합니다.</p></article>
       </div>
       <div id="source-notes" class="source-list"></div>
     </section>
