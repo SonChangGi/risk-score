@@ -67,8 +67,11 @@ ASSET_RULES: list[tuple[str, str, str]] = [
     ('asset_top_eq_5', 'Asset Top Risk = 5', 'Either asset top-risk model is red-zone'),
     ('asset_confirmed_risk', 'asset_confirmed_risk', 'Asset setup confirmed by price/relative rollover'),
     ('asset_actionable_signal', 'asset_actionable_signal', 'Asset confirmation plus active sector context'),
-    ('asset_top_ge_4_sector_context', 'Asset Top >= 4 AND sector context', 'Leading setup aligned with SOX/VIX/VXN context'),
-    ('relative_weakness_sector_context', 'Relative weakness + sector context', 'Asset relative weakness aligned with SOX/VIX/VXN context'),
+    ('asset_top_ge_4_sector_context', 'Asset Top >= 4 AND canonical SOX context', 'Leading setup aligned with canonical SOX/VIX/VXN context'),
+    ('asset_top_ge_4_effective_context', 'Asset Top >= 4 AND effective context', 'Leading setup aligned with canonical SOX context or SOXQ same-day proxy context'),
+    ('asset_top_ge_4_soxq_proxy_context', 'Asset Top >= 4 AND SOXQ proxy context', 'Leading setup aligned with the SOXQ ETF proxy when canonical SOX index data is stale'),
+    ('soxq_proxy_context_active', 'SOXQ proxy context active', 'SOXQ local top-risk/confirmation used as a same-day sector proxy'),
+    ('relative_weakness_sector_context', 'Relative weakness + canonical SOX context', 'Asset relative weakness aligned with canonical SOX/VIX/VXN context'),
     ('sector_context_active', 'Sector context active', 'SOX canonical risk or volatility context only'),
     ('sox_confirmed_top_risk', 'SOX confirmed_top_risk', 'Canonical SOX confirmation used as sector overlay'),
     ('rsi14_gt_70', 'RSI14 > 70', 'Single-factor overbought baseline'),
@@ -83,6 +86,8 @@ PRIMARY_ECONOMIC_RULES = (
     'asset_top_ge_4',
     'asset_confirmed_risk',
     'asset_actionable_signal',
+    'asset_top_ge_4_effective_context',
+    'asset_top_ge_4_soxq_proxy_context',
     'asset_top_ge_4_sector_context',
     'relative_weakness_sector_context',
 )
@@ -133,6 +138,7 @@ def provider_policy() -> Record:
         'browserLiveFetch': False,
         'priceProviderPriority': ['manual_csv_override', 'yahoo_chart_primary', 'fmp_historical_eod_fallback_if_FMP_API_KEY'],
         'contextProviderPriority': ['FRED CSV for SOX/VIX/VXN', 'Yahoo chart for optional KOSPI/USDKRW'],
+        'sectorProxyPriority': ['canonical SOX/VIX same-day context', 'SOXQ same-day ETF proxy when FRED/NASDAQSOX is stale'],
         'manualFallbackPath': 'data/risk-score/manual_prices/{symbol}.csv',
         'apiKeyFallbacks': [{'provider': 'Financial Modeling Prep', 'env': FMP_API_KEY_ENV, 'endpoint': 'stable/historical-price-eod/full'}],
         'disabledCandidates': [{'provider': 'Stooq CSV', 'reason': 'Observed JavaScript/browser challenge from this runtime; not used as an automated fallback.'}],
@@ -382,6 +388,10 @@ def generate_asset_payloads(
             source_status['assets'][symbol] = {'status': 'error', 'source': asset.get('source'), 'error': errors[symbol]}
             rows_by_symbol[symbol] = []
 
+    sector_proxy_symbol = config.get('context', {}).get('sectorProxy', {}).get('providerSymbol') or config.get('context', {}).get('sectorProxy', {}).get('symbol') or 'SOXQ'
+    rows_by_symbol = apply_sector_proxy_context(rows_by_symbol, proxy_symbol=sector_proxy_symbol)
+    source_status['context']['sectorProxy'] = sector_proxy_source_status(rows_by_symbol, sector_proxy_symbol)
+
     generated_at = datetime.now(UTC).replace(microsecond=0).isoformat().replace('+00:00', 'Z')
     backtest = build_asset_backtest_payload(config, rows_by_symbol, generated_at)
     summary = build_asset_summary_payload(config, rows_by_symbol, backtest, source_status, errors, generated_at)
@@ -539,6 +549,123 @@ def run_asset_pipeline(asset: Record, price_rows: list[Record], sector_rows: lis
     rows = compute_vol_adjusted_labels(rows)
     rows = add_asset_rule_signals(rows)
     return rows
+
+
+def apply_sector_proxy_context(rows_by_symbol: dict[str, list[Record]], *, proxy_symbol: str = 'SOXQ') -> dict[str, list[Record]]:
+    """Use SOXQ as a same-day sector proxy when canonical SOX/VIX context is stale.
+
+    Canonical SOX OH/RF scores remain untouched. For asset rows, `sector_context_active`
+    becomes the effective context used for actionability/backtest rules, while
+    `canonical_sector_context_*` preserves the original SOX/FRED context.
+    """
+    proxy_rows = rows_by_symbol.get(proxy_symbol) or []
+    proxy_by_date = {
+        row['date']: row
+        for row in proxy_rows
+        if row.get('date') and parse_float(row.get('top_risk_score')) is not None
+    }
+    output: dict[str, list[Record]] = {}
+    for symbol, rows in rows_by_symbol.items():
+        adjusted: list[Record] = []
+        for row in rows:
+            item = dict(row)
+            if symbol == 'SOX':
+                item.setdefault('canonical_sector_context_active', bool(item.get('sector_context_active')))
+                item.setdefault('canonical_sector_context_as_of', item.get('sector_context_as_of') or item.get('date'))
+                item.setdefault('canonical_sector_context_status', item.get('sector_context_status') or 'fresh')
+                item.setdefault('canonical_sector_context_lag_days', item.get('sector_context_lag_days') or 0)
+                item.update({
+                    'effective_sector_context_active': bool(item.get('sector_context_active')),
+                    'effective_sector_context_source': 'SOX',
+                    'effective_sector_context_as_of': item.get('sector_context_as_of') or item.get('date'),
+                    'effective_sector_context_status': item.get('sector_context_status') or 'fresh',
+                    'effective_sector_context_lag_days': item.get('sector_context_lag_days') or 0,
+                    'sector_proxy_symbol': proxy_symbol,
+                    'sector_proxy_available': False,
+                    'sector_proxy_status': 'not_applicable_for_canonical_sox',
+                })
+                adjusted.append(item)
+                continue
+
+            canonical_active = bool(item.get('sector_context_active'))
+            canonical_status = item.get('sector_context_status') or 'unavailable'
+            canonical_as_of = item.get('sector_context_as_of')
+            canonical_lag = item.get('sector_context_lag_days')
+            proxy = proxy_by_date.get(item.get('date'))
+            proxy_available = proxy is not None
+            proxy_top = parse_float(proxy.get('top_risk_score')) if proxy_available else None
+            proxy_oh = parse_float(proxy.get('oh_score')) if proxy_available else None
+            proxy_rf = parse_float(proxy.get('rf_score')) if proxy_available else None
+            proxy_confirmed = bool(proxy.get('asset_confirmed_risk')) if proxy_available else False
+            proxy_actionable = bool(proxy.get('asset_actionable_signal')) if proxy_available else False
+            proxy_active = bool((proxy_top is not None and proxy_top >= 4) or proxy_confirmed or proxy_actionable)
+            use_proxy = proxy_available and canonical_status != 'fresh'
+
+            effective_active = proxy_active if use_proxy else canonical_active
+            effective_source = proxy_symbol if use_proxy else 'SOX'
+            effective_as_of = proxy.get('date') if use_proxy and proxy else canonical_as_of
+            effective_status = 'proxy' if use_proxy else canonical_status
+            effective_lag = 0 if use_proxy else canonical_lag
+
+            item.update({
+                'canonical_sector_context_active': canonical_active,
+                'canonical_sector_context_as_of': canonical_as_of,
+                'canonical_sector_context_status': canonical_status,
+                'canonical_sector_context_lag_days': canonical_lag,
+                'sector_proxy_symbol': proxy_symbol,
+                'sector_proxy_available': proxy_available,
+                'sector_proxy_as_of': proxy.get('date') if proxy_available else None,
+                'sector_proxy_status': 'same_day' if proxy_available else 'unavailable',
+                'sector_proxy_is_self': symbol == proxy_symbol and proxy_available,
+                'sector_proxy_oh_score': int(proxy_oh) if proxy_oh is not None else None,
+                'sector_proxy_rf_score': int(proxy_rf) if proxy_rf is not None else None,
+                'sector_proxy_top_risk_score': int(proxy_top) if proxy_top is not None else None,
+                'sector_proxy_confirmed_risk': proxy_confirmed,
+                'sector_proxy_actionable_signal': proxy_actionable,
+                'sector_proxy_context_active': proxy_active,
+                'effective_sector_context_active': effective_active,
+                'effective_sector_context_source': effective_source,
+                'effective_sector_context_as_of': effective_as_of,
+                'effective_sector_context_status': effective_status,
+                'effective_sector_context_lag_days': effective_lag,
+                'sector_context_active': effective_active,
+                'sector_context_as_of': effective_as_of,
+                'sector_context_lag_days': effective_lag,
+                'sector_context_status': effective_status,
+            })
+            if use_proxy:
+                item['sector_context_warning'] = (
+                    f"Canonical SOX/VIX context is stale as of {canonical_as_of}; "
+                    f"{proxy_symbol} same-day ETF proxy is used as the effective sector context for actionability and validation."
+                )
+
+            confirmed = bool(item.get('asset_confirmed_risk'))
+            item['canonical_asset_actionable_signal'] = bool(item.get('asset_actionable_signal'))
+            item['asset_actionable_signal'] = bool(confirmed and effective_active)
+            item['confirmed_top_risk'] = confirmed
+            oh = parse_float(item.get('oh_score'))
+            rf = parse_float(item.get('rf_score'))
+            item['action_level'] = asset_action_level(oh, rf, confirmed, item['asset_actionable_signal'])
+            item['action_label'] = asset_action_label(oh, rf, confirmed, item['asset_actionable_signal'])
+            item['action_text'] = asset_action_text(oh, rf, confirmed, item['asset_actionable_signal'])
+            adjusted.append(item)
+        output[symbol] = add_asset_rule_signals(adjusted)
+    return output
+
+
+def sector_proxy_source_status(rows_by_symbol: dict[str, list[Record]], proxy_symbol: str) -> Record:
+    rows = rows_by_symbol.get(proxy_symbol) or []
+    latest = latest_asset_row(rows)
+    return json_ready({
+        'status': 'ok' if latest and parse_float(latest.get('top_risk_score')) is not None else 'unavailable',
+        'source': 'asset_price_pipeline',
+        'providerSymbol': proxy_symbol,
+        'role': 'same_day_sector_proxy_when_fred_sox_context_is_stale',
+        'rowCount': len(rows),
+        'latestDate': latest.get('date') if latest else None,
+        'latestTopRiskScore': latest.get('top_risk_score') if latest else None,
+        'note': 'SOXQ is used as the effective sector-context proxy only when canonical SOX/VIX context is not same-day fresh.',
+    })
 
 
 def prepare_asset_price_context(asset: Record, price_rows: list[Record], sector_rows: list[Record], *, kospi_rows: list[Record] | None = None, usdkrw_rows: list[Record] | None = None) -> list[Record]:
@@ -790,6 +917,9 @@ def add_asset_rule_signals(rows: list[Record]) -> list[Record]:
         oh = parse_float(row.get('oh_score'))
         rf = parse_float(row.get('rf_score'))
         top = parse_float(row.get('top_risk_score'))
+        canonical_context_active = bool(row.get('canonical_sector_context_active', row.get('sector_context_active')))
+        effective_context_active = bool(row.get('effective_sector_context_active', row.get('sector_context_active')))
+        proxy_context_active = bool(row.get('sector_proxy_context_active'))
         row['signal_asset_oh_ge_4'] = oh is not None and oh >= 4
         row['signal_asset_oh_eq_5'] = oh == 5
         row['signal_asset_rf_ge_4'] = rf is not None and rf >= 4
@@ -798,11 +928,14 @@ def add_asset_rule_signals(rows: list[Record]) -> list[Record]:
         row['signal_asset_top_eq_5'] = top == 5
         row['signal_asset_confirmed_risk'] = bool(row.get('asset_confirmed_risk'))
         row['signal_asset_actionable_signal'] = bool(row.get('asset_actionable_signal'))
-        row['signal_asset_top_ge_4_sector_context'] = bool(row.get('signal_asset_top_ge_4')) and bool(row.get('sector_context_active'))
+        row['signal_asset_top_ge_4_sector_context'] = bool(row.get('signal_asset_top_ge_4')) and canonical_context_active
+        row['signal_asset_top_ge_4_effective_context'] = bool(row.get('signal_asset_top_ge_4')) and effective_context_active
+        row['signal_asset_top_ge_4_soxq_proxy_context'] = bool(row.get('signal_asset_top_ge_4')) and proxy_context_active
+        row['signal_soxq_proxy_context_active'] = proxy_context_active
         rel_z = parse_float(row.get('rel_z20'))
         rf_relative_weakness = bool((row.get('rf_factors') or {}).get('relative_weakness'))
-        row['signal_relative_weakness_sector_context'] = bool(row.get('sector_context_active')) and (bool(row.get('relative_rollover')) or rf_relative_weakness or (rel_z is not None and rel_z < -1.0))
-        row['signal_sector_context_active'] = bool(row.get('sector_context_active'))
+        row['signal_relative_weakness_sector_context'] = canonical_context_active and (bool(row.get('relative_rollover')) or rf_relative_weakness or (rel_z is not None and rel_z < -1.0))
+        row['signal_sector_context_active'] = canonical_context_active
         row['signal_sox_confirmed_top_risk'] = bool(row.get('sox_confirmed_top_risk'))
         row['signal_rsi14_gt_70'] = parse_float(row.get('rsi14')) is not None and row['rsi14'] > 70
         row['signal_rsi5_gt_70'] = parse_float(row.get('rsi5')) is not None and row['rsi5'] > 70
@@ -998,11 +1131,9 @@ def summarize_asset_signal_rows(rows: list[Record], base_downside: float | None,
     })
 
 
-def economic_validation_from_periods(periods: Record) -> Record:
-    full_vol = periods.get('full', {}).get('volAdjusted', {})
-    base_downside = (full_vol.get('baseRates') or {}).get('downsideHitRate')
-    rules = full_vol.get('ruleStats') or {}
-    labels = {rule_id: label for rule_id, label, _description in ASSET_RULES}
+def primary_rule_diagnostics(period_stats: Record, labels: dict[str, str]) -> tuple[list[Record], list[Record], float | None, Record]:
+    base_downside = (period_stats.get('baseRates') or {}).get('downsideHitRate')
+    rules = period_stats.get('ruleStats') or {}
     primary: list[Record] = []
     for rule_id in PRIMARY_ECONOMIC_RULES:
         event = (rules.get(rule_id) or {}).get('event') or {}
@@ -1025,6 +1156,40 @@ def economic_validation_from_periods(periods: Record) -> Record:
         and parse_float(item.get('eventCount')) is not None
         and int(item['eventCount']) >= ECONOMIC_VALIDATION_MIN_EVENTS
     ]
+    return primary, evaluable, base_downside, rules
+
+
+def validation_status_for_rules(evaluable: list[Record], bucket_lift: float | None) -> tuple[str, str]:
+    if not evaluable:
+        return 'insufficient', 'Too few de-clustered primary-rule events to validate the asset signal economically.'
+    best_lift = max(parse_float(item.get('downsideHitRateLift')) or 0 for item in evaluable)
+    if best_lift >= 1.20 and (bucket_lift is None or bucket_lift >= ECONOMIC_VALIDATION_PASS_LIFT):
+        return 'strong', 'Primary event-level vol-adjusted rules and/or score-bucket diagnostics show strong downside lift versus the asset base rate.'
+    if best_lift >= ECONOMIC_VALIDATION_PASS_LIFT:
+        return 'validated', 'At least one primary event-level vol-adjusted risk rule has downside lift above the diagnostic validation threshold.'
+    if best_lift <= 1.0 and (bucket_lift is None or bucket_lift <= 1.0):
+        return 'weak', 'Primary event-level vol-adjusted risk rules do not beat the asset base downside rate; treat signals as descriptive risk overlays, not proven timing edges.'
+    return 'mixed', 'Primary event-level vol-adjusted risk rules are near base rate; economic timing evidence is mixed.'
+
+
+def ytd_validation_warnings(ytd_primary: list[Record]) -> list[str]:
+    warnings: list[str] = []
+    by_rule = {item['ruleId']: item for item in ytd_primary}
+    for rule_id in ('asset_top_ge_4', 'asset_confirmed_risk', 'asset_actionable_signal', 'asset_top_ge_4_soxq_proxy_context'):
+        item = by_rule.get(rule_id) or {}
+        count = parse_float(item.get('eventCount'))
+        lift = parse_float(item.get('downsideHitRateLift'))
+        if count is None or int(count) < ECONOMIC_VALIDATION_MIN_EVENTS:
+            warnings.append(f"YTD {item.get('label') or rule_id} has fewer than {ECONOMIC_VALIDATION_MIN_EVENTS} de-clustered events; do not over-read win rate.")
+        elif lift is not None and lift <= 1.0:
+            warnings.append(f"YTD {item.get('label') or rule_id} does not beat the asset base downside rate; keep it as a risk overlay, not a standalone timing edge.")
+    return dedupe_strings(warnings)
+
+
+def economic_validation_from_periods(periods: Record) -> Record:
+    labels = {rule_id: label for rule_id, label, _description in ASSET_RULES}
+    full_vol = periods.get('full', {}).get('volAdjusted', {})
+    primary, evaluable, base_downside, _rules = primary_rule_diagnostics(full_vol, labels)
     score_buckets = full_vol.get('scoreBuckets') or {}
     bucket_lift = parse_float(score_buckets.get('highVsNormalDownsideLift'))
     best_rule = max(evaluable, key=lambda item: parse_float(item.get('downsideHitRateLift')) or -math.inf) if evaluable else None
@@ -1037,23 +1202,14 @@ def economic_validation_from_periods(periods: Record) -> Record:
         if (parse_float(item.get('downsideHitRateLift')) or 0) <= 1.0
     ]
     validation_score = economic_validation_score(evaluable, bucket_lift)
-    if not evaluable:
-        status = 'insufficient'
-        summary = 'Too few de-clustered primary-rule events to validate the asset signal economically.'
-    else:
-        best_lift = max(parse_float(item.get('downsideHitRateLift')) or 0 for item in evaluable)
-        if best_lift >= 1.20 and (bucket_lift is None or bucket_lift >= ECONOMIC_VALIDATION_PASS_LIFT):
-            status = 'strong'
-            summary = 'Primary event-level vol-adjusted rules and/or score-bucket diagnostics show strong downside lift versus the asset base rate.'
-        elif best_lift >= ECONOMIC_VALIDATION_PASS_LIFT:
-            status = 'validated'
-            summary = 'At least one primary event-level vol-adjusted risk rule has downside lift above the diagnostic validation threshold.'
-        elif best_lift <= 1.0 and (bucket_lift is None or bucket_lift <= 1.0):
-            status = 'weak'
-            summary = 'Primary event-level vol-adjusted risk rules do not beat the asset base downside rate; treat signals as descriptive risk overlays, not proven timing edges.'
-        else:
-            status = 'mixed'
-            summary = 'Primary event-level vol-adjusted risk rules are near base rate; economic timing evidence is mixed.'
+    status, summary = validation_status_for_rules(evaluable, bucket_lift)
+    ytd_vol = periods.get('ytd', {}).get('volAdjusted', {})
+    ytd_primary, ytd_evaluable, ytd_base_downside, _ytd_rules = primary_rule_diagnostics(ytd_vol, labels)
+    ytd_best_rule = max(ytd_evaluable, key=lambda item: parse_float(item.get('downsideHitRateLift')) or -math.inf) if ytd_evaluable else None
+    ytd_status, ytd_summary = validation_status_for_rules(ytd_evaluable, parse_float((ytd_vol.get('scoreBuckets') or {}).get('highVsNormalDownsideLift')))
+    ytd_warnings = ytd_validation_warnings(ytd_primary)
+    if ytd_warnings and status in ('strong', 'validated'):
+        summary = f"{summary} YTD caveat: {' '.join(ytd_warnings[:2])}"
     return json_ready({
         'status': status,
         'primaryMode': 'event',
@@ -1068,6 +1224,15 @@ def economic_validation_from_periods(periods: Record) -> Record:
         'scoreBucketDiagnostics': score_buckets,
         'validationScore': validation_score,
         'validationScoreScale': '0-100 diagnostic evidence score; not a calibrated probability.',
+        'ytdDiagnostics': {
+            'status': ytd_status,
+            'summary': ytd_summary,
+            'baseDownsideHitRate': ytd_base_downside,
+            'primaryRules': ytd_primary,
+            'bestRule': ytd_best_rule,
+            'warnings': ytd_warnings,
+            'policy': 'YTD is a live diagnostics window. It can cap confidence/copy, but thresholds are not re-tuned to maximize recent hit rate.',
+        },
         'summary': summary,
     })
 
@@ -1127,6 +1292,7 @@ def build_asset_summary_payload(config: Record, rows_by_symbol: dict[str, list[R
     latest_dates = [asset['current'].get('date') for asset in assets if asset.get('current') and asset['current'].get('date')]
     data_as_of = max(latest_dates) if latest_dates else None
     sox_current = by_symbol.get('SOX', {}).get('current') or {}
+    soxq_current = by_symbol.get('SOXQ', {}).get('current') or {}
     matrix = [matrix_row(asset) for asset in assets]
     return json_ready({
         'schemaVersion': 1,
@@ -1151,16 +1317,17 @@ def build_asset_summary_payload(config: Record, rows_by_symbol: dict[str, list[R
             'lagDays': sox_current.get('sectorContextLagDays'),
             'status': sox_current.get('sectorContextStatus'),
             'displayDate': sox_current.get('displayDate') or sox_current.get('date'),
+            'effective': build_effective_sector_context_latest(data_as_of, sox_current, soxq_current),
         },
         'methodology': {
             'soxModelPreserved': True,
             'scoreSemantics': 'SOX uses the canonical sector OH/RF model. Other assets use an experimental volatility-adjusted and relative-strength risk ladder; Top Risk is not a calibrated cross-asset probability.',
-            'assetModel': 'Volatility-adjusted OH/RF score plus relative strength versus an analysis benchmark/reference, usually SOX or KOSPI fallback for Korea when FX is unavailable.',
+            'assetModel': 'Volatility-adjusted OH/RF score plus relative strength versus an analysis benchmark/reference, usually SOX or KOSPI fallback for Korea when FX is unavailable. If same-day SOX index context is stale, SOXQ is used as the effective same-day semiconductor ETF proxy for actionability/model diagnostics.',
             'benchmarkPolicy': 'officialBenchmark is issuer/index documentation where available; analysisBenchmark is the reference used for relative-strength context and can differ from the ETF official benchmark.',
             'koreaCurrencyPolicy': 'KRW prices are converted to USD using USDKRW for SOX-relative strength when available; otherwise local KOSPI relative strength is used with warning.',
             'primaryBacktestLabel': 'volAdjusted',
             'dataProviderPolicy': provider_policy(),
-            'economicValidationPolicy': 'Report event-level lift, score-bucket diagnostics, and cross-asset evidence without ticker-specific threshold optimization.',
+            'economicValidationPolicy': 'Report full-period and YTD event-level lift, score-bucket diagnostics, SOXQ proxy-context rules, and cross-asset evidence without ticker-specific threshold optimization.',
             'notInvestmentAdvice': True,
         },
     })
@@ -1179,7 +1346,10 @@ def data_quality_for_asset(asset: Record, coverage: Record, current: Record, dat
     if latest_lag_days is not None and latest_lag_days > 5:
         warnings.append(f'Latest asset price is {latest_lag_days} calendar days behind generation time.')
     if asset.get('symbol') != 'SOX' and current.get('sectorContextStatus') != 'fresh':
-        warnings.append('Sector context is not same-day fresh; actionable interpretation is downgraded.')
+        if current.get('effectiveSectorContextSource') == 'SOXQ' or current.get('sectorContextStatus') == 'proxy':
+            warnings.append('Canonical SOX/VIX context is not same-day fresh; SOXQ same-day proxy is used for effective sector context.')
+        else:
+            warnings.append('Sector context is not same-day fresh; actionable interpretation is downgraded.')
     if coverage.get('rowCount', 0) < 252 and asset.get('symbol') != 'SOX':
         warnings.append('Less than roughly one trading year of price history.')
     attempts = data_status.get('providerAttempts') or []
@@ -1202,6 +1372,30 @@ def data_quality_for_asset(asset: Record, coverage: Record, current: Record, dat
         'providerAttempts': attempts,
         'adjustmentPolicy': data_status.get('adjustmentPolicy'),
         'warnings': dedupe_strings(warnings),
+    })
+
+
+def build_effective_sector_context_latest(data_as_of: str | None, sox_current: Record, soxq_current: Record) -> Record:
+    sox_date = sox_current.get('date')
+    soxq_date = soxq_current.get('date')
+    sox_same_day = bool(data_as_of and sox_date == data_as_of)
+    soxq_is_fresher = bool(parse_iso_date(soxq_date) and parse_iso_date(sox_date) and parse_iso_date(soxq_date) > parse_iso_date(sox_date))
+    soxq_same_day = bool(data_as_of and soxq_date == data_as_of)
+    use_proxy = (not sox_same_day and soxq_same_day) or soxq_is_fresher
+    source = 'SOXQ' if use_proxy else 'SOX'
+    current = soxq_current if use_proxy else sox_current
+    return json_ready({
+        'source': source,
+        'reason': 'SOXQ same-day/fresher proxy because FRED/NASDAQSOX canonical context is not the freshest available sector read.' if use_proxy else 'Canonical SOX context is same-day or no fresher SOXQ proxy is available.',
+        'dataAsOf': data_as_of,
+        'asOf': current.get('date'),
+        'active': current.get('sectorContextActive') if source == 'SOX' else ((current.get('topRiskScore') or 0) >= 4 or bool(current.get('assetConfirmedRisk')) or bool(current.get('assetActionableSignal'))),
+        'topRiskScore': current.get('topRiskScore'),
+        'ohScore': current.get('ohScore'),
+        'rfScore': current.get('rfScore'),
+        'confirmed': current.get('confirmation') or current.get('assetConfirmedRisk'),
+        'canonicalSoxDate': sox_date,
+        'soxqProxyDate': soxq_date,
     })
 
 
@@ -1228,9 +1422,14 @@ def compact_daily_row(row: Record) -> Record:
         'rel_z20', 'oh_score', 'rf_score', 'top_risk_score', 'regime', 'asset_confirmed_risk',
         'asset_actionable_signal', 'sector_context_active', 'relative_strength_status', 'benchmark_symbol',
         'benchmark_as_of', 'sector_context_as_of', 'sector_context_lag_days', 'sector_context_status',
+        'canonical_sector_context_active', 'canonical_sector_context_as_of', 'canonical_sector_context_status',
+        'effective_sector_context_active', 'effective_sector_context_source', 'effective_sector_context_as_of',
+        'sector_proxy_symbol', 'sector_proxy_as_of', 'sector_proxy_top_risk_score', 'sector_proxy_context_active',
         'vix_close', 'vix_ma5', 'vix_ma20', 'vix_rising', 'vxn_close', 'vxn_ma5', 'vxn_rising',
         'confirmed_top_risk', 'signal_asset_top_ge_4', 'signal_asset_confirmed_risk', 'signal_asset_actionable_signal',
-        'signal_relative_weakness_sector_context', 'signal_sector_context_active', 'signal_sox_confirmed_top_risk',
+        'signal_asset_top_ge_4_effective_context', 'signal_asset_top_ge_4_soxq_proxy_context',
+        'signal_relative_weakness_sector_context', 'signal_sector_context_active', 'signal_soxq_proxy_context_active',
+        'signal_sox_confirmed_top_risk',
     ]
     return {key: row.get(key) for key in keys if key in row}
 
@@ -1272,6 +1471,8 @@ def current_summary_for_asset(asset: Record, latest: Record | None) -> Record:
     is_sox = asset['symbol'] == 'SOX'
     score_model = latest.get('score_model') or ('sox_canonical' if is_sox else 'asset_vol_relative')
     score_model_label = 'Canonical SOX sector OH/RF model' if score_model == 'sox_canonical' else 'Asset-specific volatility-adjusted relative-strength model'
+    sector_proxy = sector_proxy_summary(latest)
+    benchmark_proxy = benchmark_proxy_risk(asset, latest)
     return json_ready({
         'symbol': asset['symbol'],
         'name': asset.get('name'),
@@ -1294,7 +1495,18 @@ def current_summary_for_asset(asset: Record, latest: Record | None) -> Record:
         'confirmation': bool(latest.get('asset_confirmed_risk') if asset['symbol'] != 'SOX' else latest.get('confirmed_top_risk')),
         'assetConfirmedRisk': bool(latest.get('asset_confirmed_risk')),
         'assetActionableSignal': bool(latest.get('asset_actionable_signal')),
-        'sectorContextActive': bool(latest.get('sector_context_active')),
+        'sectorContextActive': bool(latest.get('effective_sector_context_active', latest.get('sector_context_active'))),
+        'canonicalSectorContextActive': bool(latest.get('canonical_sector_context_active', latest.get('sector_context_active'))),
+        'canonicalSectorContextAsOf': latest.get('canonical_sector_context_as_of'),
+        'canonicalSectorContextStatus': latest.get('canonical_sector_context_status'),
+        'canonicalSectorContextLagDays': latest.get('canonical_sector_context_lag_days'),
+        'effectiveSectorContextActive': bool(latest.get('effective_sector_context_active', latest.get('sector_context_active'))),
+        'effectiveSectorContextSource': latest.get('effective_sector_context_source') or ('SOX' if is_sox else latest.get('benchmark_symbol')),
+        'effectiveSectorContextAsOf': latest.get('effective_sector_context_as_of') or latest.get('sector_context_as_of'),
+        'effectiveSectorContextStatus': latest.get('effective_sector_context_status') or latest.get('sector_context_status'),
+        'effectiveSectorContextLagDays': latest.get('effective_sector_context_lag_days') if latest.get('effective_sector_context_lag_days') is not None else latest.get('sector_context_lag_days'),
+        'sectorProxy': sector_proxy,
+        'benchmarkProxyRisk': benchmark_proxy,
         'actionLevel': latest.get('action_level'),
         'actionLabel': latest.get('action_label'),
         'actionText': latest.get('action_text'),
@@ -1325,6 +1537,69 @@ def current_summary_for_asset(asset: Record, latest: Record | None) -> Record:
     })
 
 
+def sector_proxy_summary(row: Record | None) -> Record:
+    if not row:
+        return {}
+    return json_ready({
+        'symbol': row.get('sector_proxy_symbol'),
+        'available': bool(row.get('sector_proxy_available')),
+        'status': row.get('sector_proxy_status'),
+        'asOf': row.get('sector_proxy_as_of'),
+        'isSelf': bool(row.get('sector_proxy_is_self')),
+        'ohScore': row.get('sector_proxy_oh_score'),
+        'rfScore': row.get('sector_proxy_rf_score'),
+        'topRiskScore': row.get('sector_proxy_top_risk_score'),
+        'confirmedRisk': bool(row.get('sector_proxy_confirmed_risk')),
+        'actionableSignal': bool(row.get('sector_proxy_actionable_signal')),
+        'contextActive': bool(row.get('sector_proxy_context_active')),
+    })
+
+
+def benchmark_proxy_risk(asset: Record, row: Record | None) -> Record:
+    if not row or asset.get('symbol') == 'SOX':
+        return {'enabled': False}
+    official = asset.get('officialBenchmark') or {}
+    analysis = asset.get('analysisBenchmark') or {}
+    analysis_symbol = analysis.get('symbol') or asset.get('benchmark')
+    is_etf = asset.get('type') == 'ETF'
+    tracks_sox = bool(
+        official.get('symbol') == 'SOX'
+        or analysis.get('role') == 'tracked_index_and_sector_reference'
+        or (is_etf and analysis_symbol == 'SOX')
+    )
+    if not tracks_sox:
+        return {'enabled': False}
+    canonical_fresh = row.get('canonical_sector_context_status') == 'fresh'
+    effective_source = row.get('effective_sector_context_source')
+    values = {
+        'localAssetTopRiskScore': parse_float(row.get('top_risk_score')),
+        'canonicalSoxTopRiskScore': parse_float(row.get('sox_top_risk_score')) if canonical_fresh or effective_source != row.get('sector_proxy_symbol') else None,
+        'staleCanonicalSoxTopRiskScore': parse_float(row.get('sox_top_risk_score')) if not canonical_fresh else None,
+        'soxqProxyTopRiskScore': parse_float(row.get('sector_proxy_top_risk_score')),
+    }
+    scored_values = {key: value for key, value in values.items() if value is not None and key != 'staleCanonicalSoxTopRiskScore'}
+    combined = max(scored_values.values()) if scored_values else None
+    driver = max(scored_values, key=scored_values.get) if scored_values else None
+    local = values['localAssetTopRiskScore']
+    proxy = values['soxqProxyTopRiskScore']
+    divergence = None if local is None or proxy is None else abs(local - proxy)
+    return json_ready({
+        'enabled': True,
+        'sourceSymbol': row.get('sector_proxy_symbol') or 'SOXQ',
+        'officialBenchmarkSymbol': official.get('symbol'),
+        'officialBenchmarkName': official.get('name') or analysis.get('name'),
+        'analysisReferenceSymbol': analysis_symbol,
+        'analysisReferenceRole': analysis.get('role') or ('sector_reference' if analysis_symbol else None),
+        'overlayBasis': 'official_sox_tracking' if official.get('symbol') == 'SOX' else 'analysis_reference',
+        **values,
+        'combinedBenchmarkOverlayScore': int(combined) if combined is not None else None,
+        'primaryDriver': driver,
+        'localVsProxyScoreGap': divergence,
+        'canonicalSoxIncludedInOverlay': bool(values.get('canonicalSoxTopRiskScore') is not None),
+        'interpretation': 'For SOX-tracking ETF exposure, read the local ETF score together with SOXQ/SOX benchmark proxy risk; the local score alone can understate sector-level setup risk when index data is stale.',
+    })
+
+
 def build_asset_factor_breakdown(row: Record | None) -> list[Record]:
     if not row:
         return []
@@ -1343,7 +1618,9 @@ def build_asset_factor_breakdown(row: Record | None) -> list[Record]:
         ('price_rollover', 'P < MA5', row.get('close'), bool(row.get('price_rollover')), 'Confirmation', '가격이 MA5 아래로 내려오며 rally rollover 확인'),
         ('asset_large_down_day', 'ret <= -max(2%, .75*RV20)', row.get('ret_1'), bool(row.get('asset_large_down_day')), 'Confirmation', '자산 변동성 대비 큰 하락일 확인'),
         ('relative_rollover', 'RS < RS MA5', row.get('relative_strength'), bool(row.get('relative_rollover')), 'Confirmation', 'benchmark 대비 상대강도 단기 이탈'),
-        ('sector_context_active', 'SOX/VIX/VXN context active', row.get('sox_top_risk_score'), bool(row.get('sector_context_active')), 'Sector', '섹터 고점 리스크 또는 변동성 상승 context'),
+        ('canonical_sector_context_active', 'SOX/VIX/VXN context active', row.get('sox_top_risk_score'), bool(row.get('canonical_sector_context_active', row.get('sector_context_active'))), 'Sector', 'canonical SOX/VIX/VXN 섹터 고점 리스크 또는 변동성 상승 context'),
+        ('soxq_proxy_context_active', 'SOXQ top>=4 or confirmed', row.get('sector_proxy_top_risk_score'), bool(row.get('sector_proxy_context_active')), 'Sector Proxy', 'SOX index 최신값이 지연될 때 같은 날짜 SOXQ ETF를 섹터 proxy로 사용'),
+        ('effective_sector_context_active', 'canonical SOX or SOXQ proxy context active', row.get('sector_proxy_top_risk_score') if row.get('effective_sector_context_source') == row.get('sector_proxy_symbol') else row.get('sox_top_risk_score'), bool(row.get('effective_sector_context_active', row.get('sector_context_active'))), 'Sector', 'actionable/backtest에 쓰는 최종 effective sector context'),
     ]
     for key, threshold, value, signal, model, interpretation in confirmations:
         factors.append({'factor': key, 'model': model, 'currentValue': value, 'threshold': threshold, 'signal': signal, 'interpretation': interpretation})
@@ -1394,6 +1671,10 @@ def matrix_row(asset_summary: Record) -> Record:
         'sectorContextStatus': current.get('sectorContextStatus'),
         'sectorContextAsOf': current.get('sectorContextAsOf'),
         'sectorContextLagDays': current.get('sectorContextLagDays'),
+        'effectiveSectorContextSource': current.get('effectiveSectorContextSource'),
+        'canonicalSectorContextStatus': current.get('canonicalSectorContextStatus'),
+        'sectorProxy': current.get('sectorProxy'),
+        'benchmarkProxyRisk': current.get('benchmarkProxyRisk'),
         'actionable': current.get('assetActionableSignal'),
         'relativeStrength': current.get('relativeStrengthStatus'),
         'analysisBenchmark': asset_summary.get('analysisBenchmark'),
@@ -1448,6 +1729,10 @@ def confidence_for_rows(rows: list[Record], asset: Record, economic_validation: 
         reasons.append('Primary economic validation has insufficient de-clustered events; confidence is capped.')
     elif validation_status in ('strong', 'validated'):
         reasons.append('At least one primary event-level vol-adjusted risk rule shows downside lift above the diagnostic threshold.')
+    ytd_warnings = ((economic_validation or {}).get('ytdDiagnostics') or {}).get('warnings') or []
+    if ytd_warnings and level == 'high':
+        level = 'medium'
+        reasons.append('YTD diagnostics contain weak or sparse primary-rule evidence; headline confidence is capped at medium.')
     if asset.get('historyWarning'):
         reasons.append(asset['historyWarning'])
     if coverage['evaluatedAbsoluteCount'] < 756:
@@ -1476,7 +1761,13 @@ def warnings_for_asset(asset: Record, coverage: Record, latest: Record | None, e
     if asset.get('type') == 'ETF' and official:
         official_name = official.get('name') or 'issuer-defined benchmark/exposure'
         analysis_symbol = analysis.get('symbol') or asset.get('benchmark') or 'analysis benchmark'
-        warnings.append(f"{asset['symbol']} official benchmark/exposure is {official_name}; {analysis_symbol} is used only as the analysis reference for relative strength.")
+        if official.get('symbol') and official.get('symbol') == analysis_symbol:
+            warnings.append(f"{asset['symbol']} official benchmark/exposure is {official_name}; {analysis_symbol} is also the analysis reference, so local ETF risk and benchmark/proxy risk are shown separately.")
+        else:
+            warnings.append(f"{asset['symbol']} official benchmark/exposure is {official_name}; {analysis_symbol} is used only as the analysis reference for relative strength.")
+    proxy_risk = benchmark_proxy_risk(asset, latest) if latest else {}
+    if proxy_risk.get('enabled') and parse_float(proxy_risk.get('localVsProxyScoreGap')) is not None and proxy_risk['localVsProxyScoreGap'] >= 2:
+        warnings.append('Local ETF score and benchmark/proxy score diverge by at least 2 points; interpret the overlay with the benchmark proxy panel, not the local score alone.')
     validation_status = (economic_validation or {}).get('status')
     if validation_status == 'weak':
         warnings.append('Economic validation is weak: primary event-level vol-adjusted risk rules do not beat the asset base downside rate.')

@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "contract": "asset-universe",
   "projectId": "risk-score",
-  "generatedAt": "2026-06-30T05:30:37Z",
+  "generatedAt": "2026-06-30T06:21:57Z",
   "context": {
     "sox": {
       "seriesId": "NASDAQSOX",
@@ -31,6 +31,13 @@
       "source": "yahoo",
       "role": "optional_korea_fx_usdkrw",
       "optional": true
+    },
+    "sectorProxy": {
+      "symbol": "SOXQ",
+      "providerSymbol": "SOXQ",
+      "source": "yahoo",
+      "role": "same_day_sox_etf_proxy_when_fred_sox_context_is_stale",
+      "note": "SOXQ is the preferred ETF proxy for SOX/PHLX Semiconductor Sector Index exposure when canonical FRED NASDAQSOX context is not same-day fresh."
     }
   },
   "assets": [

@@ -33,6 +33,7 @@ assert(contains(files.app, 'asset_risk_summary.json') && contains(files.app, 'as
 assert(contains(files.app, 'renderRiskMatrix') && contains(files.app, 'selectAsset'), 'asset matrix and selector renderer exist');
 assert(contains(files.app, 'assetActionableSignal') && contains(files.app, 'sectorContextActive'), 'confirmed risk and actionable signal separated');
 assert(contains(files.app, 'sectorContextAsOf') && contains(files.app, 'sectorContextStatus') && contains(files.app, 'sectorContextLagDays'), 'UI surfaces sector context date/status/lag');
+assert(contains(files.app, 'SOXQ proxy') && contains(files.app, 'Benchmark overlay') && contains(files.app, 'YTD validation'), 'UI surfaces SOXQ proxy and YTD diagnostics');
 assert(contains(files.app, 'Official benchmark') && contains(files.app, 'Analysis reference') && contains(files.app, 'not calibrated to SOX probability'), 'UI separates official benchmark, analysis reference, and score semantics');
 assert(contains(files.app, 'Economic validation') && contains(files.app, 'validationTone'), 'UI surfaces economic validation');
 assert(contains(files.app, 'Best validation rule') && contains(files.app, 'Score-bucket lift') && contains(files.app, 'Cross-asset validation'), 'UI surfaces economic validation diagnostics');
@@ -50,7 +51,7 @@ for (const threshold of ["'z20_overheat': 1.5", "'rsi5_overheat': 70", "'roc20_o
 for (const fn of ['load_universe_config', 'fetch_yahoo_daily_prices', 'fetch_fmp_daily_prices', 'fetch_or_load_prices', 'provider_policy', 'run_asset_pipeline', 'compute_asset_oh_score', 'compute_asset_rf_score', 'compute_asset_confirmation', 'economic_validation_from_periods', 'export_asset_json_outputs']) {
   assert(contains(files.assetModel, `def ${fn}`), `asset python function exists: ${fn}`);
 }
-for (const marker of ['ROC20Z > 1.25', 'RelZ20 > 1.0', 'SOX_USD_IF_FX_ELSE_KOSPI', 'vol_adj_downside_5d', 'asset_actionable_signal', 'sector_context_active', 'sector_context_as_of', 'relative_weakness_sector_context', 'scoreBuckets', 'crossAssetValidation', 'dataQuality', 'providerAttempts', 'fmp_historical_eod', 'officialBenchmark', 'analysisBenchmark', 'economicValidation']) {
+for (const marker of ['ROC20Z > 1.25', 'RelZ20 > 1.0', 'SOX_USD_IF_FX_ELSE_KOSPI', 'vol_adj_downside_5d', 'asset_actionable_signal', 'sector_context_active', 'sector_context_as_of', 'relative_weakness_sector_context', 'asset_top_ge_4_soxq_proxy_context', 'sectorProxyPriority', 'ytdDiagnostics', 'scoreBuckets', 'crossAssetValidation', 'dataQuality', 'providerAttempts', 'fmp_historical_eod', 'officialBenchmark', 'analysisBenchmark', 'benchmarkProxyRisk', 'overlayBasis', 'economicValidation']) {
   assert(contains(files.assetModel + files.universe, marker), `asset methodology marker exists: ${marker}`);
 }
 for (const symbol of ['MU', 'INTC', 'MRVL', 'WDC', 'SNDK', 'STX', '005930.KS', '000660.KS', 'SOXX', 'SOXQ', 'SMH', 'XSD', 'PSI', 'DRAM']) {

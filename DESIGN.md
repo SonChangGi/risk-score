@@ -26,6 +26,7 @@
   - Show current SOX and selected semiconductor-related asset short-term top risk from price/trend/volatility/relative strength only.
   - Preserve economic interpretation by separating Overheated-top and Rebound-failure models.
   - Make confirmation filters and historical event-level hit rates visible before action copy.
+  - Use SOXQ as the transparent same-day SOX-tracking ETF proxy when canonical SOX/VIX context is stale, while preserving canonical SOX formulas and source labels.
   - Fit visually and operationally inside the Quant Dashboard static Pages family.
 - Non-goals:
   - No news/NLP model, no intraday trading signal, no threshold tuning to recent outcomes, no direct investment advice.
@@ -54,7 +55,7 @@
   4. Current risk summary cards and action overlay language.
   5. Factor breakdown table with thresholds and model ownership.
   6. Price/score/relative-strength/VIX-VXN charts with semantic markers.
-  7. Backtest toggles: event-level first, daily secondary, vol-adjusted label primary for assets.
+  7. Backtest toggles: event-level first, daily secondary, vol-adjusted label primary for assets, with YTD diagnostics and SOXQ proxy-context rules visible.
   8. Signal history table.
   9. Data/methodology/limitations and optional data adapters.
 
@@ -82,6 +83,7 @@
   - Lightweight SVG chart renderer for price/score/VIX with markers and `<title>` tooltips.
   - Backtest mode toggles for event-level vs daily stats and absolute vs volatility-adjusted labels.
   - Signal history table with latest notable risk events.
+- SOXQ proxy and benchmark overlay summary cards for SOX-tracking or SOX-analysis-reference ETF exposure; local ETF score and benchmark/proxy overlay must stay visually distinct.
   - Optional sentiment/fundamental adapter cards clearly marked inactive/manual.
 - Variants and states: loading, stale, degraded, normal, watch, high-risk, red-zone, confirmed-red, optional-unavailable.
 - Token/component ownership: repo-native CSS variables in `assets/styles.css`; no new frontend framework.
@@ -123,6 +125,7 @@
 - Default SOX thresholds are literal fixed constants from the prompt and are never optimized by the update script. Asset thresholds are round-number volatility/relative-strength extensions, not fitted to YTD outcomes.
 - Backtest reporting must separate daily and declustered event-level statistics, with event-level treated as primary.
 - Period splits include full, recent 3 years, recent 1 year, YTD, and ex-2026; 2026/YTD cannot drive threshold changes.
+- YTD diagnostics must separately show raw top-risk, confirmed/actionable, and SOXQ proxy-context rule quality. YTD can cap explanatory confidence/copy, but cannot refit thresholds.
 - Threshold sensitivity is a diagnostic table only and cannot feed model defaults.
 
 ## Deployment and hub contract decision
@@ -141,3 +144,4 @@
 - Korea FX policy: use `KRW=X` to convert KRW prices to USD for SOX-relative strength when available; otherwise use `^KS11` local benchmark and display warning.
 - Short-history policy: SNDK and DRAM carry explicit warnings and low-confidence flags regardless of current score quality.
 - Backtest policy: SOX keeps canonical fixed -5% backtest; individual assets expose absolute and vol-adjusted labels with vol-adjusted event-level as primary.
+- SOXQ proxy policy: when FRED/NASDAQSOX and VIX context is not same-day fresh for a selected asset, SOXQ same-day asset score becomes the effective sector proxy for actionability and proxy-context backtest diagnostics. The UI must still show canonical SOX context date/status so the user can see why SOX and SOXQ scores may diverge. JSON `sectorContextStatus` refers to the effective context; `canonicalSectorContextStatus` is the canonical SOX/VIX/VXN status.

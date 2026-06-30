@@ -67,15 +67,19 @@ try {
   if (soxq?.officialBenchmark?.name !== 'PHLX Semiconductor Sector Index' || soxq?.officialBenchmark?.symbol !== 'SOX') throw new Error('SOXQ official SOX benchmark metadata missing');
   if (soxq?.analysisBenchmark?.symbol !== 'SOX') throw new Error('SOXQ analysis benchmark missing');
   if (!soxq?.economicValidation?.status) throw new Error('SOXQ economic validation status missing');
+  if (!soxq?.economicValidation?.ytdDiagnostics?.status) throw new Error('SOXQ YTD economic diagnostics missing');
+  if (!soxq?.current?.sectorProxy?.symbol || !soxq?.current?.benchmarkProxyRisk?.enabled) throw new Error('SOXQ proxy/benchmark overlay missing');
+  if (!soxx?.current?.benchmarkProxyRisk?.enabled || soxx.current.benchmarkProxyRisk.overlayBasis !== 'analysis_reference') throw new Error('SOXX analysis-reference benchmark overlay missing');
   if (!soxq?.dataQuality?.level || !Array.isArray(soxq?.dataQuality?.providerAttempts)) throw new Error('SOXQ data quality/provider attempts missing');
   if (!soxx?.economicValidation?.status) throw new Error('SOXX economic validation status missing');
   if (!Number.isFinite(Number(soxx?.economicValidation?.validationScore))) throw new Error('SOXX validation score missing');
   if (!soxx?.dataQuality?.level || !Array.isArray(soxx?.dataQuality?.providerAttempts)) throw new Error('SOXX data quality/provider attempts missing');
   if (soxx.economicValidation.status === 'weak' && soxx.confidence?.level === 'high') throw new Error('weak SOXX validation must not have high confidence');
   if (soxx?.current?.date > soxx?.current?.sectorContextAsOf && soxx.current.sectorContextStatus === 'fresh') throw new Error('SOXX stale context mislabeled as fresh');
-  if (!app.includes('Official benchmark') || !app.includes('Economic validation') || !app.includes('Best validation rule') || !app.includes('Data quality') || !app.includes('Price provider policy') || !app.includes('not calibrated to SOX probability')) throw new Error('score semantics UI labels missing');
+  if (!app.includes('Official benchmark') || !app.includes('Economic validation') || !app.includes('Best validation rule') || !app.includes('YTD validation') || !app.includes('SOXQ proxy') || !app.includes('Benchmark overlay') || !app.includes('Data quality') || !app.includes('Price provider policy') || !app.includes('not calibrated to SOX probability')) throw new Error('score semantics UI labels missing');
   if (!assetDaily.rowsBySymbol?.MU?.length || !assetDaily.rowsBySymbol?.SOX?.length) throw new Error('asset daily rows missing');
   if (assetBacktest.primaryLabelMode !== 'volAdjusted' || !assetBacktest.assets?.MU?.periods?.full?.volAdjusted?.scoreBuckets || !assetBacktest.crossAssetValidation?.assetCount) throw new Error('asset vol-adjusted backtest diagnostics missing');
+  if (!assetBacktest.rules?.some((rule) => rule.id === 'asset_top_ge_4_soxq_proxy_context')) throw new Error('SOXQ proxy-context backtest rule missing');
   if (dataStatus.contract !== 'risk-score-data-status' || dataStatus.availableAssetCount < required.length || !dataStatus.providerPolicy?.priceProviderPriority?.length) throw new Error('data status coverage/provider policy mismatch');
   console.log('PASS static server smoke served multi-asset route, nested assets, JSON contracts, universe, warnings, and backtest payloads');
 } finally {

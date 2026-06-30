@@ -10,6 +10,7 @@ from pathlib import Path
 import risk_score.asset_model as asset_model_module
 from risk_score.asset_model import (
     ASSET_THRESHOLDS,
+    add_asset_rule_signals,
     confidence_for_rows,
     economic_validation_from_periods,
     export_asset_json_outputs,
@@ -178,7 +179,16 @@ class AssetModelTests(unittest.TestCase):
                     'baseRates': {'downsideHitRate': 0.1},
                     'ruleStats': {
                         rule: {'event': {'eventCount': 10, 'evaluatedCount': 10, 'downsideHitRate': 0.08, 'downsideHitRateLift': 0.8}}
-                        for rule in ('asset_top_ge_4', 'asset_confirmed_risk', 'asset_actionable_signal', 'asset_top_ge_4_sector_context', 'relative_weakness_sector_context')
+                        for rule in ('asset_top_ge_4', 'asset_confirmed_risk', 'asset_actionable_signal', 'asset_top_ge_4_effective_context', 'asset_top_ge_4_soxq_proxy_context', 'asset_top_ge_4_sector_context', 'relative_weakness_sector_context')
+                    },
+                }
+            },
+            'ytd': {
+                'volAdjusted': {
+                    'baseRates': {'downsideHitRate': 0.1},
+                    'ruleStats': {
+                        rule: {'event': {'eventCount': 10, 'evaluatedCount': 10, 'downsideHitRate': 0.08, 'downsideHitRateLift': 0.8}}
+                        for rule in ('asset_top_ge_4', 'asset_confirmed_risk', 'asset_actionable_signal', 'asset_top_ge_4_effective_context', 'asset_top_ge_4_soxq_proxy_context', 'asset_top_ge_4_sector_context', 'relative_weakness_sector_context')
                     },
                 }
             }
@@ -186,12 +196,32 @@ class AssetModelTests(unittest.TestCase):
         validation = economic_validation_from_periods(fake_periods)
         self.assertEqual(validation['status'], 'weak')
         self.assertIn('validationScore', validation)
+        self.assertIn('ytdDiagnostics', validation)
+        self.assertTrue(validation['ytdDiagnostics']['warnings'])
         self.assertTrue(validation['weakRules'])
         asset = {'symbol': 'SOXX', 'type': 'ETF'}
         rows = [{'date': dated_rows(900)[i], 'downside_event_5d': False, 'vol_adj_downside_5d': False, 'signal_asset_confirmed_risk': i % 20 == 0} for i in range(900)]
         confidence = confidence_for_rows(rows, asset, validation)
         self.assertEqual(confidence['level'], 'low')
         self.assertIn('underperform', ' '.join(confidence['reasons']))
+
+    def test_canonical_and_effective_context_rules_do_not_conflate(self):
+        row = add_asset_rule_signals([{
+            'oh_score': 4,
+            'rf_score': 1,
+            'top_risk_score': 4,
+            'canonical_sector_context_active': False,
+            'effective_sector_context_active': True,
+            'sector_context_active': True,
+            'sector_proxy_context_active': True,
+            'relative_rollover': True,
+            'rf_factors': {'relative_weakness': True},
+        }])[0]
+        self.assertFalse(row['signal_asset_top_ge_4_sector_context'])
+        self.assertFalse(row['signal_relative_weakness_sector_context'])
+        self.assertFalse(row['signal_sector_context_active'])
+        self.assertTrue(row['signal_asset_top_ge_4_effective_context'])
+        self.assertTrue(row['signal_asset_top_ge_4_soxq_proxy_context'])
 
     def test_asset_summary_exports_validation_and_benchmark_metadata(self):
         sox, vix = sox_vix_rows()
@@ -215,6 +245,61 @@ class AssetModelTests(unittest.TestCase):
         self.assertIn('validationScore', mu['economicValidation'])
         self.assertIn('dataQuality', mu)
         self.assertIn('providerAttempts', mu['dataQuality'])
+
+    def test_soxq_proxy_context_is_exported_for_stale_sox_context(self):
+        config = {
+            'schemaVersion': 1,
+            'context': {'sectorProxy': {'symbol': 'SOXQ', 'providerSymbol': 'SOXQ'}},
+            'assets': [
+                mini_config()['assets'][0],
+                {**mini_config()['assets'][1], 'officialBenchmark': None},
+                {
+                    'symbol': 'SOXQ',
+                    'providerSymbol': 'SOXQ',
+                    'name': 'Invesco PHLX Semiconductor ETF',
+                    'type': 'ETF',
+                    'group': 'ETFs',
+                    'currency': 'USD',
+                    'source': 'yahoo',
+                    'benchmark': 'SOX',
+                    'analysisBenchmark': {'symbol': 'SOX', 'role': 'tracked_index_and_sector_reference'},
+                    'officialBenchmark': {'symbol': 'SOX', 'name': 'PHLX Semiconductor Sector Index'},
+                },
+                {
+                    'symbol': 'SOXX',
+                    'providerSymbol': 'SOXX',
+                    'name': 'iShares Semiconductor ETF',
+                    'type': 'ETF',
+                    'group': 'ETFs',
+                    'currency': 'USD',
+                    'source': 'yahoo',
+                    'benchmark': 'SOX',
+                    'analysisBenchmark': {'symbol': 'SOX', 'role': 'sector_reference'},
+                    'officialBenchmark': {'name': 'NYSE Semiconductor Index'},
+                },
+            ],
+        }
+        sox, vix = sox_vix_rows(120)
+        payloads = generate_asset_payloads(
+            sox,
+            vix,
+            config=config,
+            sox_scored_rows=run_pipeline(sox, vix),
+            price_rows_by_symbol={'MU': price_rows(124), 'SOXQ': price_rows(124, start_price=50, step=0.7), 'SOXX': price_rows(124, start_price=200, step=0.55)},
+            fetch_missing=False,
+        )
+        mu_current = payloads['summary']['bySymbol']['MU']['current']
+        soxq_current = payloads['summary']['bySymbol']['SOXQ']['current']
+        soxx_current = payloads['summary']['bySymbol']['SOXX']['current']
+        self.assertEqual(mu_current['sectorContextStatus'], 'proxy')
+        self.assertEqual(mu_current['effectiveSectorContextSource'], 'SOXQ')
+        self.assertEqual(mu_current['sectorProxy']['symbol'], 'SOXQ')
+        self.assertTrue(soxq_current['benchmarkProxyRisk']['enabled'])
+        self.assertTrue(soxx_current['benchmarkProxyRisk']['enabled'])
+        self.assertEqual(soxx_current['benchmarkProxyRisk']['overlayBasis'], 'analysis_reference')
+        self.assertEqual(soxx_current['benchmarkProxyRisk']['analysisReferenceSymbol'], 'SOX')
+        self.assertIn('asset_top_ge_4_soxq_proxy_context', [rule['id'] for rule in payloads['backtest']['rules']])
+        self.assertIn('sectorProxy', payloads['dataStatus']['sourceStatus']['context'])
 
     def test_provider_symbol_policy_supports_fmp_only_for_usd_assets(self):
         self.assertEqual(fmp_symbol_for_asset({'symbol': 'MU', 'providerSymbol': 'MU', 'currency': 'USD'}), 'MU')

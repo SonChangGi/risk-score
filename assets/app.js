@@ -160,7 +160,7 @@
         <td>${badge(scoreText(row.topRiskScore), scoreTone(row.topRiskScore))}</td>
         <td>${escapeHtml(row.regime || '-')}</td>
         <td>${yesNo(row.confirmed)}</td>
-        <td>${yesNo(row.sectorContext)} ${badge(row.sectorContextStatus || '-', row.sectorContextStatus === 'fresh' ? 'normal' : 'warning')}</td>
+        <td>${yesNo(row.sectorContext)} ${badge(row.sectorContextStatus || '-', row.sectorContextStatus === 'fresh' ? 'normal' : row.sectorContextStatus === 'proxy' ? 'watch' : 'warning')}<small>${escapeHtml(row.effectiveSectorContextSource || 'SOX')}</small></td>
         <td>${yesNo(row.actionable)}</td>
         <td class="text-cell">${escapeHtml(row.relativeStrength || '-')}<small>analysis: ${escapeHtml(row.analysisBenchmark?.symbol || '-')}</small></td>
         <td>${badge(row.dataQuality || row.dataStatus || '-', (row.dataQuality || row.dataStatus) === 'ok' ? 'normal' : 'warning')} ${badge(row.confidence || '-', row.confidence === 'high' ? 'normal' : row.confidence === 'medium' ? 'watch' : 'warning')} ${row.economicValidationStatus ? badge(`${row.economicValidationStatus}${finite(row.validationScore) ? ` ${Math.round(row.validationScore)}` : ''}`, validationTone(row.economicValidationStatus)) : ''}<small>${escapeHtml(row.dataProvider || '')}</small></td>
@@ -181,6 +181,10 @@
     const quality = asset.dataQuality || {};
     const bestRule = validation.bestRule || {};
     const official = current.officialBenchmark || asset.officialBenchmark || {};
+    const proxy = current.sectorProxy || {};
+    const benchmarkProxy = current.benchmarkProxyRisk || {};
+    const ytd = validation.ytdDiagnostics || {};
+    const ytdBest = ytd.bestRule || {};
     const modelDetail = isSox ? 'SOX canonical sector risk model' : 'Experimental asset vol/relative risk ladder';
     const topRiskDetail = isSox
       ? `Canonical sector regime: ${current.regime || '-'}`
@@ -194,12 +198,15 @@
       ['RF Score', scoreText(current.rfScore), isSox ? '기존 SOX 반등 실패형 top model' : '자산 변동성/상대강도 RF model', scoreTone(current.rfScore)],
       ['Top Risk Score', scoreText(current.topRiskScore), topRiskDetail, scoreTone(current.topRiskScore)],
       ['Confirmation', current.confirmation ? 'ON' : 'OFF', isSox ? 'SOX confirmed_top_risk' : 'asset_confirmed_risk', current.confirmation ? 'confirmed-red' : 'normal'],
-      ['Sector context', current.sectorContextActive ? 'ON' : 'OFF', `${current.sectorContextStatus || '-'} · as of ${formatDate(current.sectorContextAsOf)} · lag ${formatLag(current.sectorContextLagDays)}`, current.sectorContextActive ? 'high-risk' : current.sectorContextStatus === 'fresh' ? 'normal' : 'warning'],
+      ['Sector context', current.sectorContextActive ? 'ON' : 'OFF', `${current.sectorContextStatus || '-'} · source ${current.effectiveSectorContextSource || 'SOX'} · as of ${formatDate(current.sectorContextAsOf)} · lag ${formatLag(current.sectorContextLagDays)}`, current.sectorContextActive ? 'high-risk' : current.sectorContextStatus === 'fresh' ? 'normal' : current.sectorContextStatus === 'proxy' ? 'watch' : 'warning'],
+      ['SOXQ proxy', proxy.available ? scoreText(proxy.topRiskScore) : 'N/A', proxy.available ? `proxy ${proxy.symbol || 'SOXQ'} · ${formatDate(proxy.asOf)} · ${proxy.contextActive ? 'context ON' : 'context off'}` : 'Used only when canonical SOX is stale', proxy.contextActive ? 'high-risk' : proxy.available ? 'neutral' : 'warning'],
+      ['Benchmark overlay', benchmarkProxy.enabled ? scoreText(benchmarkProxy.combinedBenchmarkOverlayScore) : 'N/A', benchmarkProxy.enabled ? `local ${scoreText(benchmarkProxy.localAssetTopRiskScore)} · proxy ${scoreText(benchmarkProxy.soxqProxyTopRiskScore)} · driver ${benchmarkProxy.primaryDriver || '-'}` : 'No SOX-tracking benchmark proxy needed', benchmarkProxy.enabled ? scoreTone(benchmarkProxy.combinedBenchmarkOverlayScore) : 'neutral'],
       ['Actionable signal', current.assetActionableSignal ? 'ON' : 'OFF', 'asset confirmation + sector context', current.assetActionableSignal ? 'confirmed-red' : 'neutral'],
       ['Relative strength', current.relativeStrengthStatus || (isSox ? 'sector baseline' : '-'), current.benchmarkSymbol ? `Analysis reference: ${current.benchmarkSymbol} · benchmark as of ${formatDate(current.benchmarkAsOf)}` : 'SOX baseline', toneForRelative(current.relativeStrengthStatus)],
       ['Official benchmark', official?.name || (isSox ? 'PHLX Semiconductor Sector Index' : current.type === 'ETF' ? 'issuer exposure, not configured' : 'N/A for single stock'), official?.source ? `${official.source}; analysis reference may differ` : 'Not used as an asset-model input', officialTone],
       ['Model validation', validation.status ? `${validation.status}${finite(validation.validationScore) ? ` · ${Math.round(validation.validationScore)}/100` : ''}` : (isSox ? 'canonical' : '-'), validation.summary || selectedAssetSummary()?.confidence?.level || 'available', validationTone(validation.status)],
       ['Best validation rule', bestRule.label || (isSox ? 'Canonical SOX backtest' : '-'), finite(bestRule.downsideHitRateLift) ? `event lift ${formatLift(bestRule.downsideHitRateLift)} · events ${formatInteger(bestRule.eventCount)}` : 'Event-level evidence unavailable', validationTone(validation.status)],
+      ['YTD validation', ytd.status ? `${ytd.status}` : (isSox ? 'canonical' : '-'), ytdBest.label ? `${ytdBest.label}: lift ${formatLift(ytdBest.downsideHitRateLift)} · events ${formatInteger(ytdBest.eventCount)}` : 'YTD diagnostic unavailable', validationTone(ytd.status)],
       ['Data quality', quality.level || selectedAssetSummary()?.dataStatus?.status || 'ok', `${quality.source || selectedAssetSummary()?.dataStatus?.source || '-'} · lag ${formatLag(quality.latestLagDays)} · ${quality.fallbackUsed ? 'fallback used' : 'primary path'}`, (quality.level || selectedAssetSummary()?.dataStatus?.status) === 'ok' ? 'normal' : 'warning'],
     ];
     const target = $('#summary-cards');
@@ -217,7 +224,8 @@
       action.className = `action-card ${classForLevel(current.actionLevel)}`;
       const warning = selectedWarnings().length ? `<p class="warning-text">${escapeHtml(selectedWarnings()[0])}</p>` : '';
       const caveat = !isSox ? `<p class="muted-text">자산 점수는 SOX canonical score와 같은 확률 척도가 아니며, 변동성/상대강도 기반 risk overlay입니다.</p>` : '';
-      action.innerHTML = `<span>${escapeHtml(current.actionLabel || 'Unknown')}</span><strong>${escapeHtml(current.regime || '-')}</strong><p>${escapeHtml(current.actionText || '데이터를 확인할 수 없습니다.')}</p>${caveat}${warning}`;
+      const proxyNote = benchmarkProxy.enabled ? `<p class="muted-text">Benchmark overlay: local ${scoreText(benchmarkProxy.localAssetTopRiskScore)} vs SOXQ proxy ${scoreText(benchmarkProxy.soxqProxyTopRiskScore)}. SOX index가 지연되면 SOXQ proxy를 우선 확인합니다.</p>` : '';
+      action.innerHTML = `<span>${escapeHtml(current.actionLabel || 'Unknown')}</span><strong>${escapeHtml(current.regime || '-')}</strong><p>${escapeHtml(current.actionText || '데이터를 확인할 수 없습니다.')}</p>${caveat}${proxyNote}${warning}`;
     }
   }
 
@@ -252,6 +260,7 @@
       { key: 'oh_score', label: 'OH', color: '#fbbf24' },
       { key: 'rf_score', label: 'RF', color: '#fb7185' },
       { key: 'top_risk_score', label: 'Top', color: '#f4f4f5' },
+      { key: 'sector_proxy_top_risk_score', label: 'SOXQ proxy', color: '#38bdf8' },
     ], markerRows(scored), { minY: 0, maxY: 5, valueFormatter: (v) => `${v}/5`, yLabel: 'Score' });
     renderLineChart('#relative-chart', scored, [
       { key: 'relative_strength', label: 'Relative strength', color: '#7dd3fc' },
@@ -276,6 +285,7 @@
       if (row.oh_score >= 4) markers.push({ row, tone: 'watch', label: `OH ${row.oh_score}/5` });
       if (row.rf_score >= 4) markers.push({ row, tone: 'high-risk', label: `RF ${row.rf_score}/5` });
       if (row.top_risk_score === 5) markers.push({ row, tone: 'red-zone', label: 'Red Zone' });
+      if (row.sector_proxy_context_active) markers.push({ row, tone: 'watch', label: `SOXQ proxy ${row.sector_proxy_top_risk_score}/5` });
       if (row.asset_confirmed_risk || row.confirmed_top_risk) markers.push({ row, tone: 'confirmed-red', label: 'Confirmed' });
       if (row.asset_actionable_signal) markers.push({ row, tone: 'confirmed-red', label: 'Actionable' });
       return markers;
@@ -382,10 +392,14 @@
       const validation = asset?.economicValidation || {};
       const buckets = validation.scoreBucketDiagnostics || {};
       const bestRule = validation.bestRule || {};
+      const ytd = validation.ytdDiagnostics || {};
+      const ytdBest = ytd.bestRule || {};
       const cross = state.assetBacktest?.crossAssetValidation || state.assetSummary?.crossAssetValidation || {};
-      target.innerHTML = `<article class="notice"><h3>Vol-adjusted label 우선</h3><p>개별 종목/ETF는 고정 -5%와 변동성 조정 label을 함께 제공하지만, 주 평가는 변동성 조정 event-level입니다. SOX는 섹터 분석 기준이지 모든 ETF의 공식 벤치마크가 아닙니다.</p></article>
+      target.innerHTML = `<article class="notice"><h3>Vol-adjusted label 우선</h3><p>개별 종목/ETF는 고정 -5%와 변동성 조정 label을 함께 제공하지만, 주 평가는 변동성 조정 event-level입니다. SOX가 지연되면 SOXQ same-day proxy context rule을 함께 봅니다.</p></article>
       <article class="mini-card"><span>Economic validation</span><strong>${escapeHtml(validation.status || '-')} ${finite(validation.validationScore) ? `${Math.round(validation.validationScore)}/100` : ''}</strong><small>${escapeHtml(validation.summary || 'validation unavailable')}</small></article>
       <article class="mini-card"><span>Best primary rule</span><strong>${escapeHtml(bestRule.label || '-')}</strong><small>event lift ${formatLift(bestRule.downsideHitRateLift)} · events ${formatInteger(bestRule.eventCount)}</small></article>
+      <article class="mini-card"><span>YTD best rule</span><strong>${escapeHtml(ytdBest.label || '-')}</strong><small>YTD lift ${formatLift(ytdBest.downsideHitRateLift)} · events ${formatInteger(ytdBest.eventCount)} · ${escapeHtml(ytd.status || '-')}</small></article>
+      ${(ytd.warnings || []).slice(0, 2).map((item) => `<article class="mini-card"><span>YTD warning</span><strong>주의</strong><small>${escapeHtml(item)}</small></article>`).join('')}
       <article class="mini-card"><span>Score-bucket lift</span><strong>${formatLift(buckets.highVsNormalDownsideLift)}</strong><small>Top risk ≥4 downside frequency vs score ≤2; diagnostic only</small></article>
       <article class="mini-card"><span>Cross-asset validation</span><strong>${formatInteger(cross.statusCounts?.strong || 0)} strong · ${formatInteger(cross.statusCounts?.validated || 0)} validated</strong><small>${escapeHtml(cross.summary || 'cross-asset diagnostics unavailable')}</small></article>
       ${(asset?.warnings || []).slice(0, 4).map((item) => `<article class="mini-card"><span>Data warning</span><strong>주의</strong><small>${escapeHtml(item)}</small></article>`).join('')}`;
@@ -434,6 +448,7 @@
       'Economic validation은 event-level lift, score-bucket diagnostics, cross-asset evidence를 보고하지만 티커별 threshold를 조정하지 않습니다.',
       '개별 가격 데이터는 update script에서 manual CSV override, Yahoo chart primary, FMP API-key fallback 순서로 처리하며 browser runtime에서는 live finance fetch를 하지 않습니다.',
       'SOX는 개별 자산의 sector context/analysis reference이며, ETF의 official benchmark와 다를 수 있습니다.',
+      'FRED/NASDAQSOX가 최신 거래일을 아직 제공하지 않으면 SOXQ를 same-day SOX-tracking ETF proxy로 사용해 effective sector context와 YTD proxy-context rule을 계산합니다.',
       'Top Risk Score는 0~5 regime ladder이며 SOX와 개별 종목/ETF 사이에 직접 비교 가능한 확률 점수가 아닙니다.',
       'Sector context date가 asset date보다 오래되면 stale로 표시하고 actionable 해석을 낮춰 봅니다.',
       '한국 종목은 USDKRW가 가능하면 USD 환산 후 SOX 대비 relative strength를 계산하고, FX가 없으면 KOSPI local fallback을 표시합니다.',

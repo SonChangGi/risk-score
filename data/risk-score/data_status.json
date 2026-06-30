@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "contract": "risk-score-data-status",
   "projectId": "risk-score",
-  "generatedAt": "2026-06-30T05:30:37Z",
+  "generatedAt": "2026-06-30T06:21:57Z",
   "status": "warning",
   "requiredUniverseCount": 15,
   "availableAssetCount": 15,
@@ -20,6 +20,10 @@
     "contextProviderPriority": [
       "FRED CSV for SOX/VIX/VXN",
       "Yahoo chart for optional KOSPI/USDKRW"
+    ],
+    "sectorProxyPriority": [
+      "canonical SOX/VIX same-day context",
+      "SOXQ same-day ETF proxy when FRED/NASDAQSOX is stale"
     ],
     "manualFallbackPath": "data/risk-score/manual_prices/{symbol}.csv",
     "apiKeyFallbacks": [
@@ -69,6 +73,16 @@
         "source": "yahoo_chart",
         "providerSymbol": "KRW=X",
         "rowCount": 5833
+      },
+      "sectorProxy": {
+        "status": "ok",
+        "source": "asset_price_pipeline",
+        "providerSymbol": "SOXQ",
+        "role": "same_day_sector_proxy_when_fred_sox_context_is_stale",
+        "rowCount": 1267,
+        "latestDate": "2026-06-29",
+        "latestTopRiskScore": 2,
+        "note": "SOXQ is used as the effective sector-context proxy only when canonical SOX/VIX context is not same-day fresh."
       }
     },
     "assets": {
