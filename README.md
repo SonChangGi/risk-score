@@ -6,10 +6,12 @@ SOX Index 단기 고점 위험을 뉴스가 아닌 가격·추세·변동성 기
 
 - **SOX OH/RF Score (0~5)**: 기존 SOX 과열형 top risk와 rebound-failure risk model을 그대로 유지합니다.
 - **Asset OH/RF Score (0~5)**: 개별 종목/ETF에는 volatility-adjusted momentum(`ROC20Z`)과 relative strength(`RelZ20`)를 적용합니다.
-- **Top Risk Score**: `max(OH Score, RF Score)`.
-- **Sector context**: SOX high-risk/confirmed 상태, VIX rising, optional VXN rising을 자산 신호의 context로 표시합니다.
+- **Top Risk Score**: `max(OH Score, RF Score)`인 0~5 regime ladder입니다. SOX canonical score와 개별 자산 score는 같은 확률 척도가 아닙니다.
+- **Sector context**: SOX high-risk/confirmed 상태, VIX rising, optional VXN rising을 자산 신호의 context로 표시하고, asset date와 SOX/VIX context date가 다르면 `stale` warning을 냅니다.
+- **Benchmark semantics**: ETF의 `officialBenchmark`(발행사/공식 기준)와 이 대시보드의 `analysisBenchmark`(상대강도/섹터 해석 참조)를 분리합니다. SOX는 analysis reference일 수 있지만 모든 ETF의 공식 추종지수라는 의미가 아닙니다.
 - **Confirmation vs Actionable**: `asset_confirmed_risk`(자산 자체 rollover)와 `asset_actionable_signal`(자산 confirmation + sector context)을 분리합니다.
 - **Backtest**: 신호 후 미래 5거래일 absolute downside/strict top과 volatility-adjusted label, daily statistics, 5D cooldown event-level statistics, base-rate lift.
+- **Economic validation**: 개별 자산 primary rule의 event-level volatility-adjusted downside lift가 base rate를 이기지 못하면 confidence를 낮추고 warning을 표시합니다.
 - **Universe matrix**: SOX, MU, INTC, MRVL, WDC, SNDK, STX, 005930.KS, 000660.KS, SOXX, SMH, XSD, PSI, DRAM을 한눈에 비교합니다.
 
 본 페이지는 투자 조언이 아니라 개인 리서치용 risk overlay입니다.
@@ -28,7 +30,7 @@ Required generated-data sources:
 Optional/source-note only in v1:
 
 - Nasdaq SOX overview: `https://indexes.nasdaqomx.com/Index/Overview/SOX`
-- iShares SOXX page: `https://www.ishares.com/us/products/239705/ishares-phlx-semiconductor-etf`
+- iShares SOXX page: `https://www.ishares.com/us/products/239705/ishares-phlx-semiconductor-etf` (ETF official benchmark metadata; SOX remains an analysis reference when configured)
 - AAII Sentiment Survey: `https://www.aaii.com/sentimentsurvey/sent_results`
 - CNN Fear & Greed: `https://edition.cnn.com/markets/fear-and-greed`
 - Fundamental/revision data adapters are future 1~3 month cycle-risk panels and are not part of the 1~5D main score.
@@ -65,6 +67,8 @@ Outputs:
   - `data/risk-score/data_status.json`
 
 `risk_score_summary.json` follows the Quant Dashboard `quant-research-summary` contract so the central hub can show OH/RF/top/confirmation metrics. The multi-asset extension adds new files rather than renaming existing fields.
+
+Current multi-asset JSON exports include date/meaning diagnostics such as `sectorContextAsOf`, `sectorContextLagDays`, `sectorContextStatus`, `latestScoredDate`, `analysisBenchmark`, `officialBenchmark`, and `economicValidation`.
 
 ## Deploy/sync to Quant Dashboard route
 
@@ -164,6 +168,14 @@ asset_confirmed_risk = recent_asset_setup AND (P < MA5 OR ret_1 <= -max(2%, 0.75
 asset_actionable_signal = asset_confirmed_risk AND sector_context_active
 ```
 
+Sector context freshness:
+
+```text
+fresh  = selected asset date has a valid same-day scored SOX/VIX context
+stale  = selected asset date uses the latest prior valid SOX/VIX context
+unavailable = no valid prior SOX/VIX context exists
+```
+
 Vol-adjusted label:
 
 ```text
@@ -181,6 +193,7 @@ vol_adj_strict_top = fwd_max_5 <= 0.5 * RV20 * sqrt(5) AND vol_adj_downside
 - Korean FX mismatch is handled by USDKRW when available; if FX is unavailable, local KOSPI relative strength is shown with warning instead of pretending KRW/SOX comparability.
 - SNDK and DRAM have short standalone histories, so event-level confidence is flagged low until more data accumulates.
 - Public deployment is served from the Quant Dashboard subtree; run the sync command plus `verify_quant_dashboard_sync.py` before publishing to prevent canonical/deploy drift.
+- SOXX and other ETF signals can be economically weaker than SOX despite similar sector exposure because the asset model is volatility/relative-strength adjusted and the ETF official benchmark/exposure may differ from SOX. The dashboard surfaces this through benchmark metadata and validation confidence instead of forcing scores to match.
 
 ## Future improvements
 

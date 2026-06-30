@@ -8,6 +8,8 @@ from pathlib import Path
 
 from risk_score.asset_model import (
     ASSET_THRESHOLDS,
+    confidence_for_rows,
+    economic_validation_from_periods,
     export_asset_json_outputs,
     generate_asset_payloads,
     load_universe_config,
@@ -62,6 +64,9 @@ class AssetModelTests(unittest.TestCase):
             self.assertIn(symbol, by_symbol)
         self.assertIn('historyWarning', by_symbol['SNDK'])
         self.assertIn('historyWarning', by_symbol['DRAM'])
+        self.assertEqual(by_symbol['SOXX']['officialBenchmark']['name'], 'NYSE Semiconductor Index')
+        self.assertEqual(by_symbol['SOXX']['analysisBenchmark']['symbol'], 'SOX')
+        self.assertIn('analysis reference', by_symbol['SOXX']['analysisBenchmark']['note'])
 
     def test_asset_pipeline_uses_vol_adjusted_scores_and_labels_without_future_tail(self):
         sox, vix = sox_vix_rows()
@@ -136,6 +141,64 @@ class AssetModelTests(unittest.TestCase):
             summary = json.loads(Path(paths['asset_summary']).read_text())
             self.assertEqual(summary['projectId'], 'risk-score')
             self.assertEqual(summary['defaultSymbol'], 'SOX')
+
+    def test_context_lag_warns_and_degrades_asset_status(self):
+        sox, vix = sox_vix_rows(120)
+        config = {'schemaVersion': 1, 'context': {}, 'assets': mini_config()['assets'][:2]}
+        payloads = generate_asset_payloads(
+            sox,
+            vix,
+            config=config,
+            sox_scored_rows=run_pipeline(sox, vix),
+            price_rows_by_symbol={'MU': price_rows(124)},
+            fetch_missing=False,
+        )
+        mu = payloads['summary']['bySymbol']['MU']
+        current = mu['current']
+        self.assertEqual(current['sectorContextStatus'], 'stale')
+        self.assertGreater(current['sectorContextLagDays'], 0)
+        self.assertEqual(mu['dataStatus']['status'], 'warning')
+        self.assertTrue(any('Sector context is stale' in item for item in mu['warnings']))
+
+    def test_weak_economic_validation_downgrades_confidence(self):
+        fake_periods = {
+            'full': {
+                'volAdjusted': {
+                    'baseRates': {'downsideHitRate': 0.1},
+                    'ruleStats': {
+                        rule: {'event': {'eventCount': 10, 'evaluatedCount': 10, 'downsideHitRate': 0.08, 'downsideHitRateLift': 0.8}}
+                        for rule in ('asset_top_ge_4', 'asset_confirmed_risk', 'asset_actionable_signal', 'asset_top_ge_4_sector_context')
+                    },
+                }
+            }
+        }
+        validation = economic_validation_from_periods(fake_periods)
+        self.assertEqual(validation['status'], 'weak')
+        asset = {'symbol': 'SOXX', 'type': 'ETF'}
+        rows = [{'date': dated_rows(900)[i], 'downside_event_5d': False, 'vol_adj_downside_5d': False, 'signal_asset_confirmed_risk': i % 20 == 0} for i in range(900)]
+        confidence = confidence_for_rows(rows, asset, validation)
+        self.assertEqual(confidence['level'], 'low')
+        self.assertIn('underperform', ' '.join(confidence['reasons']))
+
+    def test_asset_summary_exports_validation_and_benchmark_metadata(self):
+        sox, vix = sox_vix_rows()
+        config = mini_config()
+        payloads = generate_asset_payloads(
+            sox,
+            vix,
+            config=config,
+            sox_scored_rows=run_pipeline(sox, vix),
+            price_rows_by_symbol={'MU': price_rows(), '005930.KS': price_rows(start_price=70000, step=80), 'DRAM': price_rows(80, 20, 0.2)},
+            kospi_rows=[{'date': day, 'close': 2500 + i, 'adj_close': 2500 + i} for i, day in enumerate(dated_rows(120))],
+            usdkrw_rows=[{'date': day, 'close': 1400, 'adj_close': 1400} for day in dated_rows(120)],
+            fetch_missing=False,
+        )
+        mu = payloads['summary']['bySymbol']['MU']
+        self.assertIn('economicValidation', mu)
+        self.assertIn('modelValidation', mu)
+        self.assertIn('analysisBenchmark', mu)
+        self.assertIn('scoreModel', mu['current'])
+        self.assertIn('latestScoredDate', mu['current'])
 
 
 if __name__ == '__main__':

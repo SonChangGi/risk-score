@@ -60,6 +60,13 @@ try {
   if (!assetSummary.bySymbol?.SNDK?.warnings?.length) throw new Error('SNDK short-history warning missing');
   if (!assetSummary.bySymbol?.DRAM?.warnings?.length) throw new Error('DRAM short-history warning missing');
   if (!assetSummary.bySymbol?.['005930.KS']?.current?.relativeStrengthBasis) throw new Error('Korea currency/relative strength basis missing');
+  const soxx = assetSummary.bySymbol?.SOXX;
+  if (soxx?.officialBenchmark?.name !== 'NYSE Semiconductor Index') throw new Error('SOXX official benchmark metadata missing or incorrectly labeled');
+  if (soxx?.analysisBenchmark?.symbol !== 'SOX') throw new Error('SOXX analysis benchmark reference missing');
+  if (!soxx?.economicValidation?.status) throw new Error('SOXX economic validation status missing');
+  if (soxx.economicValidation.status === 'weak' && soxx.confidence?.level === 'high') throw new Error('weak SOXX validation must not have high confidence');
+  if (soxx?.current?.date > soxx?.current?.sectorContextAsOf && soxx.current.sectorContextStatus === 'fresh') throw new Error('SOXX stale context mislabeled as fresh');
+  if (!app.includes('Official benchmark') || !app.includes('Economic validation') || !app.includes('not calibrated to SOX probability')) throw new Error('score semantics UI labels missing');
   if (!assetDaily.rowsBySymbol?.MU?.length || !assetDaily.rowsBySymbol?.SOX?.length) throw new Error('asset daily rows missing');
   if (assetBacktest.primaryLabelMode !== 'volAdjusted' || !assetBacktest.assets?.MU?.periods?.full?.volAdjusted) throw new Error('asset vol-adjusted backtest missing');
   if (dataStatus.contract !== 'risk-score-data-status' || dataStatus.availableAssetCount < required.length) throw new Error('data status coverage mismatch');

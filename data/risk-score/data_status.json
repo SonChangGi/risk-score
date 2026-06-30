@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "contract": "risk-score-data-status",
   "projectId": "risk-score",
-  "generatedAt": "2026-06-30T03:57:54Z",
-  "status": "ok",
+  "generatedAt": "2026-06-30T04:32:48Z",
+  "status": "warning",
   "requiredUniverseCount": 14,
   "availableAssetCount": 14,
   "sourceStatus": {

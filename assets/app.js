@@ -100,7 +100,8 @@
 
   function renderAll() {
     const current = selectedCurrent();
-    setStatus(current.actionLevel || 'ok', `Selected ${state.selectedSymbol} · Data as of ${formatDate(current.date || state.summary?.dataAsOf)} · generated ${formatDateTime(state.summary?.generatedAt)}`);
+    const contextPart = current.sectorContextStatus ? ` · sector context ${current.sectorContextStatus}${current.sectorContextAsOf ? ` as of ${formatDate(current.sectorContextAsOf)}` : ''}` : '';
+    setStatus(current.actionLevel || 'ok', `Selected ${state.selectedSymbol} · score date ${formatDate(current.latestScoredDate || current.date || state.summary?.dataAsOf)}${contextPart} · generated ${formatDateTime(state.summary?.generatedAt)}`);
     renderAssetSelector();
     renderRiskMatrix();
     renderSummary(current);
@@ -159,10 +160,10 @@
         <td>${badge(scoreText(row.topRiskScore), scoreTone(row.topRiskScore))}</td>
         <td>${escapeHtml(row.regime || '-')}</td>
         <td>${yesNo(row.confirmed)}</td>
-        <td>${yesNo(row.sectorContext)}</td>
+        <td>${yesNo(row.sectorContext)} ${badge(row.sectorContextStatus || '-', row.sectorContextStatus === 'fresh' ? 'normal' : 'warning')}</td>
         <td>${yesNo(row.actionable)}</td>
-        <td>${escapeHtml(row.relativeStrength || '-')}</td>
-        <td>${badge(row.dataStatus || '-', row.dataStatus === 'ok' ? 'normal' : 'warning')} ${badge(row.confidence || '-', row.confidence === 'high' ? 'normal' : row.confidence === 'medium' ? 'watch' : 'warning')}</td>
+        <td class="text-cell">${escapeHtml(row.relativeStrength || '-')}<small>analysis: ${escapeHtml(row.analysisBenchmark?.symbol || '-')}</small></td>
+        <td>${badge(row.dataStatus || '-', row.dataStatus === 'ok' ? 'normal' : 'warning')} ${badge(row.confidence || '-', row.confidence === 'high' ? 'normal' : row.confidence === 'medium' ? 'watch' : 'warning')} ${row.economicValidationStatus ? badge(row.economicValidationStatus, validationTone(row.economicValidationStatus)) : ''}</td>
       </tr>
     `).join('');
     $$('#asset-matrix-body .asset-row').forEach((row) => {
@@ -175,16 +176,27 @@
 
   function renderSummary(current) {
     const isSox = state.selectedSymbol === 'SOX';
+    const asset = selectedAssetSummary() || {};
+    const validation = asset.economicValidation || {};
+    const official = current.officialBenchmark || asset.officialBenchmark || {};
+    const modelDetail = isSox ? 'SOX canonical sector risk model' : 'Experimental asset vol/relative risk ladder';
+    const topRiskDetail = isSox
+      ? `Canonical sector regime: ${current.regime || '-'}`
+      : `Regime ladder only; not calibrated to SOX probability (${current.regime || '-'})`;
+    const officialTone = official?.name ? 'neutral' : current.type === 'ETF' ? 'warning' : 'neutral';
     const cards = [
       [`${state.selectedSymbol} latest`, formatPrice(current.close), `${formatDate(current.date)} · ${current.scoreCurrency || 'USD'}`, 'neutral'],
+      ['Score model', isSox ? 'SOX canonical' : 'Asset experimental', current.scoreModelLabel || modelDetail, isSox ? 'normal' : 'warning'],
       ['1D return', formatPercent(current.oneDayReturn, 2), 'Daily adjusted close 기준', toneForReturn(current.oneDayReturn)],
       ['OH Score', scoreText(current.ohScore), isSox ? '기존 SOX 과열형 top model' : '자산 변동성 조정 OH model', scoreTone(current.ohScore)],
       ['RF Score', scoreText(current.rfScore), isSox ? '기존 SOX 반등 실패형 top model' : '자산 변동성/상대강도 RF model', scoreTone(current.rfScore)],
-      ['Top Risk Score', scoreText(current.topRiskScore), `Regime: ${current.regime || '-'}`, scoreTone(current.topRiskScore)],
+      ['Top Risk Score', scoreText(current.topRiskScore), topRiskDetail, scoreTone(current.topRiskScore)],
       ['Confirmation', current.confirmation ? 'ON' : 'OFF', isSox ? 'SOX confirmed_top_risk' : 'asset_confirmed_risk', current.confirmation ? 'confirmed-red' : 'normal'],
-      ['Sector context', current.sectorContextActive ? 'ON' : 'OFF', 'SOX setup/confirmed 또는 VIX/VXN rising', current.sectorContextActive ? 'high-risk' : 'normal'],
+      ['Sector context', current.sectorContextActive ? 'ON' : 'OFF', `${current.sectorContextStatus || '-'} · as of ${formatDate(current.sectorContextAsOf)} · lag ${formatLag(current.sectorContextLagDays)}`, current.sectorContextActive ? 'high-risk' : current.sectorContextStatus === 'fresh' ? 'normal' : 'warning'],
       ['Actionable signal', current.assetActionableSignal ? 'ON' : 'OFF', 'asset confirmation + sector context', current.assetActionableSignal ? 'confirmed-red' : 'neutral'],
-      ['Relative strength', current.relativeStrengthStatus || (isSox ? 'sector baseline' : '-'), current.benchmarkSymbol ? `Benchmark: ${current.benchmarkSymbol}` : 'SOX baseline', toneForRelative(current.relativeStrengthStatus)],
+      ['Relative strength', current.relativeStrengthStatus || (isSox ? 'sector baseline' : '-'), current.benchmarkSymbol ? `Analysis reference: ${current.benchmarkSymbol} · benchmark as of ${formatDate(current.benchmarkAsOf)}` : 'SOX baseline', toneForRelative(current.relativeStrengthStatus)],
+      ['Official benchmark', official?.name || (isSox ? 'PHLX Semiconductor Sector Index' : current.type === 'ETF' ? 'issuer exposure, not configured' : 'N/A for single stock'), official?.source ? `${official.source}; analysis reference may differ` : 'Not used as an asset-model input', officialTone],
+      ['Model validation', validation.status || (isSox ? 'canonical' : '-'), validation.summary || selectedAssetSummary()?.confidence?.level || 'available', validationTone(validation.status)],
       ['Data status', selectedAssetSummary()?.dataStatus?.status || 'ok', selectedWarnings().slice(0, 1).join(' ') || selectedAssetSummary()?.confidence?.level || 'available', selectedAssetSummary()?.dataStatus?.status === 'ok' ? 'normal' : 'warning'],
     ];
     const target = $('#summary-cards');
@@ -201,7 +213,8 @@
     if (action) {
       action.className = `action-card ${classForLevel(current.actionLevel)}`;
       const warning = selectedWarnings().length ? `<p class="warning-text">${escapeHtml(selectedWarnings()[0])}</p>` : '';
-      action.innerHTML = `<span>${escapeHtml(current.actionLabel || 'Unknown')}</span><strong>${escapeHtml(current.regime || '-')}</strong><p>${escapeHtml(current.actionText || '데이터를 확인할 수 없습니다.')}</p>${warning}`;
+      const caveat = !isSox ? `<p class="muted-text">자산 점수는 SOX canonical score와 같은 확률 척도가 아니며, 변동성/상대강도 기반 risk overlay입니다.</p>` : '';
+      action.innerHTML = `<span>${escapeHtml(current.actionLabel || 'Unknown')}</span><strong>${escapeHtml(current.regime || '-')}</strong><p>${escapeHtml(current.actionText || '데이터를 확인할 수 없습니다.')}</p>${caveat}${warning}`;
     }
   }
 
@@ -363,7 +376,10 @@
     if (!target) return;
     if (!isSox) {
       const asset = selectedAssetSummary();
-      target.innerHTML = `<article class="notice"><h3>Vol-adjusted label 우선</h3><p>개별 종목/ETF는 고정 -5%와 변동성 조정 label을 함께 제공하지만, 주 평가는 변동성 조정 event-level입니다.</p></article>${(asset?.warnings || []).slice(0, 4).map((item) => `<article class="mini-card"><span>Data warning</span><strong>주의</strong><small>${escapeHtml(item)}</small></article>`).join('')}`;
+      const validation = asset?.economicValidation || {};
+      target.innerHTML = `<article class="notice"><h3>Vol-adjusted label 우선</h3><p>개별 종목/ETF는 고정 -5%와 변동성 조정 label을 함께 제공하지만, 주 평가는 변동성 조정 event-level입니다. SOX는 섹터 분석 기준이지 모든 ETF의 공식 벤치마크가 아닙니다.</p></article>
+      <article class="mini-card"><span>Economic validation</span><strong>${escapeHtml(validation.status || '-')}</strong><small>${escapeHtml(validation.summary || 'validation unavailable')}</small></article>
+      ${(asset?.warnings || []).slice(0, 4).map((item) => `<article class="mini-card"><span>Data warning</span><strong>주의</strong><small>${escapeHtml(item)}</small></article>`).join('')}`;
       return;
     }
     const items = (state.backtest?.thresholdSensitivity || []).filter((_, index) => index < 8);
@@ -405,11 +421,20 @@
     const limitations = [
       ...(summary.limitations || []),
       '개별 종목/ETF score는 volatility-adjusted momentum/label과 relative strength를 사용하며, SOX 원본 threshold를 그대로 최적화하지 않습니다.',
+      'SOX는 개별 자산의 sector context/analysis reference이며, ETF의 official benchmark와 다를 수 있습니다.',
+      'Top Risk Score는 0~5 regime ladder이며 SOX와 개별 종목/ETF 사이에 직접 비교 가능한 확률 점수가 아닙니다.',
+      'Sector context date가 asset date보다 오래되면 stale로 표시하고 actionable 해석을 낮춰 봅니다.',
       '한국 종목은 USDKRW가 가능하면 USD 환산 후 SOX 대비 relative strength를 계산하고, FX가 없으면 KOSPI local fallback을 표시합니다.',
       'SNDK와 DRAM은 standalone history가 짧아 backtest confidence가 낮게 표시될 수 있습니다.',
     ];
+    const benchmarks = (state.assetUniverse?.assets || [])
+      .filter((asset) => asset.officialBenchmark || asset.analysisBenchmark)
+      .slice(0, 8)
+      .map((asset) => `<article class="source-item"><strong>${escapeHtml(asset.symbol)} benchmark semantics</strong><span>${escapeHtml(asset.officialBenchmark?.name || 'no official benchmark in config')}</span><p>Analysis reference: ${escapeHtml(asset.analysisBenchmark?.symbol || asset.benchmark || '-')} · ${escapeHtml(asset.analysisBenchmark?.note || 'relative-strength context only')}</p>${asset.officialBenchmark?.url ? `<a href="${escapeAttribute(asset.officialBenchmark.url)}">official/source</a>` : ''}</article>`)
+      .join('');
     target.innerHTML = `
       <article class="notice"><h3>Limitations</h3><ul>${limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></article>
+      ${benchmarks}
       ${optional.map((source) => `<article class="source-item"><strong>${escapeHtml(source.name)}</strong><span>${escapeHtml(source.status)}</span><p>${escapeHtml(source.note || '')}</p>${source.url ? `<a href="${escapeAttribute(source.url)}">source</a>` : ''}</article>`).join('')}
     `;
   }
@@ -510,6 +535,14 @@
     return 'neutral';
   }
 
+  function validationTone(value) {
+    const text = String(value || '').toLowerCase();
+    if (text === 'validated' || text === 'canonical') return 'normal';
+    if (text === 'mixed' || text === 'insufficient') return 'watch';
+    if (text === 'weak') return 'warning';
+    return 'neutral';
+  }
+
   function modelTone(model) {
     if (model === 'OH') return 'watch';
     if (model === 'RF') return 'bad';
@@ -568,6 +601,10 @@
 
   function formatLift(value) {
     return finite(value) ? `${Number(value).toLocaleString('ko-KR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}x` : '-';
+  }
+
+  function formatLag(value) {
+    return finite(value) ? `${formatInteger(value)}d` : '-';
   }
 
   function finite(value) {

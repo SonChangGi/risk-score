@@ -2,26 +2,297 @@
   "schemaVersion": 1,
   "description": "Config-managed universe for the SOX risk-score multi-asset extension.",
   "context": {
-    "sox": { "seriesId": "NASDAQSOX", "source": "FRED", "role": "sector_context" },
-    "vix": { "seriesId": "VIXCLS", "source": "FRED", "role": "volatility_context" },
-    "vxn": { "seriesId": "VXNCLS", "source": "FRED", "role": "optional_nasdaq_volatility_context", "optional": true },
-    "kospi": { "providerSymbol": "^KS11", "source": "yahoo", "role": "optional_korea_local_benchmark", "optional": true },
-    "usdkrw": { "providerSymbol": "KRW=X", "source": "yahoo", "role": "optional_korea_fx_usdkrw", "optional": true }
+    "sox": {
+      "seriesId": "NASDAQSOX",
+      "source": "FRED",
+      "role": "sector_context"
+    },
+    "vix": {
+      "seriesId": "VIXCLS",
+      "source": "FRED",
+      "role": "volatility_context"
+    },
+    "vxn": {
+      "seriesId": "VXNCLS",
+      "source": "FRED",
+      "role": "optional_nasdaq_volatility_context",
+      "optional": true
+    },
+    "kospi": {
+      "providerSymbol": "^KS11",
+      "source": "yahoo",
+      "role": "optional_korea_local_benchmark",
+      "optional": true
+    },
+    "usdkrw": {
+      "providerSymbol": "KRW=X",
+      "source": "yahoo",
+      "role": "optional_korea_fx_usdkrw",
+      "optional": true
+    }
   },
   "assets": [
-    { "symbol": "SOX", "providerSymbol": "NASDAQSOX", "name": "PHLX Semiconductor Sector Index", "type": "Sector", "group": "SOX", "currency": "USD", "source": "fred", "benchmark": "self", "isDefault": true },
-    { "symbol": "MU", "providerSymbol": "MU", "name": "Micron Technology", "type": "US Stock", "group": "US Stocks", "currency": "USD", "source": "yahoo", "benchmark": "SOX" },
-    { "symbol": "INTC", "providerSymbol": "INTC", "name": "Intel", "type": "US Stock", "group": "US Stocks", "currency": "USD", "source": "yahoo", "benchmark": "SOX" },
-    { "symbol": "MRVL", "providerSymbol": "MRVL", "name": "Marvell Technology", "type": "US Stock", "group": "US Stocks", "currency": "USD", "source": "yahoo", "benchmark": "SOX" },
-    { "symbol": "WDC", "providerSymbol": "WDC", "name": "Western Digital", "type": "US Stock", "group": "US Stocks", "currency": "USD", "source": "yahoo", "benchmark": "SOX" },
-    { "symbol": "SNDK", "providerSymbol": "SNDK", "name": "SanDisk", "type": "US Stock", "group": "US Stocks", "currency": "USD", "source": "yahoo", "benchmark": "SOX", "historyWarning": "Standalone trading history may be short; event-level confidence is limited." },
-    { "symbol": "STX", "providerSymbol": "STX", "name": "Seagate Technology", "type": "US Stock", "group": "US Stocks", "currency": "USD", "source": "yahoo", "benchmark": "SOX" },
-    { "symbol": "005930.KS", "providerSymbol": "005930.KS", "name": "Samsung Electronics", "type": "Korea Stock", "group": "Korea Stocks", "currency": "KRW", "source": "yahoo", "benchmark": "SOX_USD_IF_FX_ELSE_KOSPI" },
-    { "symbol": "000660.KS", "providerSymbol": "000660.KS", "name": "SK hynix", "type": "Korea Stock", "group": "Korea Stocks", "currency": "KRW", "source": "yahoo", "benchmark": "SOX_USD_IF_FX_ELSE_KOSPI" },
-    { "symbol": "SOXX", "providerSymbol": "SOXX", "name": "iShares Semiconductor ETF", "type": "ETF", "group": "ETFs", "currency": "USD", "source": "yahoo", "benchmark": "SOX" },
-    { "symbol": "SMH", "providerSymbol": "SMH", "name": "VanEck Semiconductor ETF", "type": "ETF", "group": "ETFs", "currency": "USD", "source": "yahoo", "benchmark": "SOX" },
-    { "symbol": "XSD", "providerSymbol": "XSD", "name": "SPDR S&P Semiconductor ETF", "type": "ETF", "group": "ETFs", "currency": "USD", "source": "yahoo", "benchmark": "SOX" },
-    { "symbol": "PSI", "providerSymbol": "PSI", "name": "Invesco Semiconductors ETF", "type": "ETF", "group": "ETFs", "currency": "USD", "source": "yahoo", "benchmark": "SOX" },
-    { "symbol": "DRAM", "providerSymbol": "DRAM", "name": "Roundhill Memory ETF", "type": "ETF", "group": "ETFs", "currency": "USD", "source": "yahoo", "benchmark": "SOX", "historyWarning": "Trading history is short; backtest confidence is limited." }
+    {
+      "symbol": "SOX",
+      "providerSymbol": "NASDAQSOX",
+      "name": "PHLX Semiconductor Sector Index",
+      "type": "Sector",
+      "group": "SOX",
+      "currency": "USD",
+      "source": "fred",
+      "benchmark": "self",
+      "isDefault": true,
+      "analysisBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "role": "self"
+      },
+      "officialBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "source": "Nasdaq",
+        "url": "https://indexes.nasdaqomx.com/Index/Overview/SOX"
+      }
+    },
+    {
+      "symbol": "MU",
+      "providerSymbol": "MU",
+      "name": "Micron Technology",
+      "type": "US Stock",
+      "group": "US Stocks",
+      "currency": "USD",
+      "source": "yahoo",
+      "benchmark": "SOX",
+      "analysisBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "role": "sector_reference"
+      },
+      "officialBenchmark": null
+    },
+    {
+      "symbol": "INTC",
+      "providerSymbol": "INTC",
+      "name": "Intel",
+      "type": "US Stock",
+      "group": "US Stocks",
+      "currency": "USD",
+      "source": "yahoo",
+      "benchmark": "SOX",
+      "analysisBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "role": "sector_reference"
+      },
+      "officialBenchmark": null
+    },
+    {
+      "symbol": "MRVL",
+      "providerSymbol": "MRVL",
+      "name": "Marvell Technology",
+      "type": "US Stock",
+      "group": "US Stocks",
+      "currency": "USD",
+      "source": "yahoo",
+      "benchmark": "SOX",
+      "analysisBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "role": "sector_reference"
+      },
+      "officialBenchmark": null
+    },
+    {
+      "symbol": "WDC",
+      "providerSymbol": "WDC",
+      "name": "Western Digital",
+      "type": "US Stock",
+      "group": "US Stocks",
+      "currency": "USD",
+      "source": "yahoo",
+      "benchmark": "SOX",
+      "analysisBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "role": "sector_reference"
+      },
+      "officialBenchmark": null
+    },
+    {
+      "symbol": "SNDK",
+      "providerSymbol": "SNDK",
+      "name": "SanDisk",
+      "type": "US Stock",
+      "group": "US Stocks",
+      "currency": "USD",
+      "source": "yahoo",
+      "benchmark": "SOX",
+      "historyWarning": "Standalone trading history may be short; event-level confidence is limited.",
+      "analysisBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "role": "sector_reference"
+      },
+      "officialBenchmark": null
+    },
+    {
+      "symbol": "STX",
+      "providerSymbol": "STX",
+      "name": "Seagate Technology",
+      "type": "US Stock",
+      "group": "US Stocks",
+      "currency": "USD",
+      "source": "yahoo",
+      "benchmark": "SOX",
+      "analysisBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "role": "sector_reference"
+      },
+      "officialBenchmark": null
+    },
+    {
+      "symbol": "005930.KS",
+      "providerSymbol": "005930.KS",
+      "name": "Samsung Electronics",
+      "type": "Korea Stock",
+      "group": "Korea Stocks",
+      "currency": "KRW",
+      "source": "yahoo",
+      "benchmark": "SOX_USD_IF_FX_ELSE_KOSPI",
+      "analysisBenchmark": {
+        "symbol": "SOX_USD_IF_FX_ELSE_KOSPI",
+        "name": "SOX in USD if USDKRW available, else KOSPI local fallback",
+        "role": "currency_aware_analysis_reference"
+      },
+      "officialBenchmark": null
+    },
+    {
+      "symbol": "000660.KS",
+      "providerSymbol": "000660.KS",
+      "name": "SK hynix",
+      "type": "Korea Stock",
+      "group": "Korea Stocks",
+      "currency": "KRW",
+      "source": "yahoo",
+      "benchmark": "SOX_USD_IF_FX_ELSE_KOSPI",
+      "analysisBenchmark": {
+        "symbol": "SOX_USD_IF_FX_ELSE_KOSPI",
+        "name": "SOX in USD if USDKRW available, else KOSPI local fallback",
+        "role": "currency_aware_analysis_reference"
+      },
+      "officialBenchmark": null
+    },
+    {
+      "symbol": "SOXX",
+      "providerSymbol": "SOXX",
+      "name": "iShares Semiconductor ETF",
+      "type": "ETF",
+      "group": "ETFs",
+      "currency": "USD",
+      "source": "yahoo",
+      "benchmark": "SOX",
+      "analysisBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "role": "sector_reference",
+        "note": "Used as a semiconductor sector analysis reference, not necessarily the ETF official benchmark."
+      },
+      "officialBenchmark": {
+        "name": "NYSE Semiconductor Index",
+        "source": "iShares official page",
+        "url": "https://www.ishares.com/us/products/239705/ishares-phlx-semiconductor-etf",
+        "note": "SOX is retained here as an analysis reference; the ETF official benchmark is not labeled as SOX."
+      }
+    },
+    {
+      "symbol": "SMH",
+      "providerSymbol": "SMH",
+      "name": "VanEck Semiconductor ETF",
+      "type": "ETF",
+      "group": "ETFs",
+      "currency": "USD",
+      "source": "yahoo",
+      "benchmark": "SOX",
+      "analysisBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "role": "sector_reference",
+        "note": "Used as a semiconductor sector analysis reference, not necessarily the ETF official benchmark."
+      },
+      "officialBenchmark": {
+        "name": "MVIS US Listed Semiconductor 25 Index",
+        "source": "VanEck official/fact sheet",
+        "url": "https://www.vaneck.com/us/en/investments/semiconductor-etf-smh/",
+        "note": "SOX is an analysis reference only."
+      }
+    },
+    {
+      "symbol": "XSD",
+      "providerSymbol": "XSD",
+      "name": "SPDR S&P Semiconductor ETF",
+      "type": "ETF",
+      "group": "ETFs",
+      "currency": "USD",
+      "source": "yahoo",
+      "benchmark": "SOX",
+      "analysisBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "role": "sector_reference",
+        "note": "Used as a semiconductor sector analysis reference, not necessarily the ETF official benchmark."
+      },
+      "officialBenchmark": {
+        "name": "S&P Semiconductor Select Industry Index",
+        "source": "State Street official page",
+        "url": "https://www.ssga.com/us/en/intermediary/etfs/state-street-spdr-sp-semiconductor-etf-xsd",
+        "note": "SOX is an analysis reference only."
+      }
+    },
+    {
+      "symbol": "PSI",
+      "providerSymbol": "PSI",
+      "name": "Invesco Semiconductors ETF",
+      "type": "ETF",
+      "group": "ETFs",
+      "currency": "USD",
+      "source": "yahoo",
+      "benchmark": "SOX",
+      "analysisBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "role": "sector_reference",
+        "note": "Used as a semiconductor sector analysis reference, not necessarily the ETF official benchmark."
+      },
+      "officialBenchmark": {
+        "name": "Dynamic Semiconductor Intellidex Index",
+        "source": "Invesco official/fact sheet",
+        "url": "https://www.invesco.com/us/en/financial-products/etfs/invesco-semiconductors-etf.html",
+        "note": "SOX is an analysis reference only."
+      }
+    },
+    {
+      "symbol": "DRAM",
+      "providerSymbol": "DRAM",
+      "name": "Roundhill Memory ETF",
+      "type": "ETF",
+      "group": "ETFs",
+      "currency": "USD",
+      "source": "yahoo",
+      "benchmark": "SOX",
+      "historyWarning": "Trading history is short; backtest confidence is limited.",
+      "analysisBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "role": "sector_reference",
+        "note": "Used as a semiconductor sector analysis reference, not necessarily the ETF official benchmark."
+      },
+      "officialBenchmark": {
+        "name": null,
+        "source": "Roundhill official page",
+        "url": "https://www.roundhillinvestments.com/etf/dram/",
+        "note": "Issuer describes a targeted memory-stock ETF exposure; SOX is used only as a broad semiconductor analysis reference."
+      }
+    }
   ]
 }

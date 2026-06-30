@@ -79,6 +79,16 @@ ASSET_RULES: list[tuple[str, str, str]] = [
     ('price_below_ma5', 'P < MA5', 'Short-term price rollover baseline'),
 ]
 
+PRIMARY_ECONOMIC_RULES = (
+    'asset_top_ge_4',
+    'asset_confirmed_risk',
+    'asset_actionable_signal',
+    'asset_top_ge_4_sector_context',
+)
+
+ECONOMIC_VALIDATION_MIN_EVENTS = 5
+ECONOMIC_VALIDATION_PASS_LIFT = 1.05
+
 ASSET_FACTORS = [
     ('z20_gt_1_5', 'z20 > 1.5', 'z20', 'OH', '20D 평균 대비 통계적 과열'),
     ('rsi5_gt_70', 'RSI5 > 70', 'rsi5', 'OH', '단기 과매수'),
@@ -330,10 +340,52 @@ def add_sector_context(sox_scored_rows: list[Record], vxn_rows: list[Record] | N
     return rows
 
 
+def benchmark_metadata(asset: Record) -> Record:
+    return {
+        'analysisBenchmark': asset.get('analysisBenchmark') or {'symbol': asset.get('benchmark'), 'role': 'analysis_reference'},
+        'officialBenchmark': asset.get('officialBenchmark'),
+    }
+
+
+def is_valid_sector_context(row: Record | None) -> bool:
+    if not row:
+        return False
+    return (
+        parse_float(row.get('top_risk_score')) is not None
+        and parse_float(row.get('oh_score')) is not None
+        and parse_float(row.get('rf_score')) is not None
+        and parse_float(row.get('vix_close')) is not None
+    )
+
+
+def context_lag_days(asset_day: str | None, context_day: str | None) -> int | None:
+    asset_date = parse_iso_date(asset_day)
+    sector_date = parse_iso_date(context_day)
+    if asset_date is None or sector_date is None:
+        return None
+    return max((asset_date - sector_date).days, 0)
+
+
+def sector_context_status(asset_day: str | None, context: Record | None) -> str:
+    if not is_valid_sector_context(context):
+        return 'unavailable'
+    return 'fresh' if context.get('date') == asset_day else 'stale'
+
+
+def sector_context_warning(asset_day: str | None, context: Record | None, status: str) -> str | None:
+    if status == 'fresh':
+        return None
+    if status == 'stale' and context and context.get('date'):
+        return f"Sector context is stale: asset date {asset_day} uses SOX/VIX context as of {context.get('date')}."
+    return f"Sector context is unavailable for asset date {asset_day}; SOX/VIX confirmation fields are not same-day comparable."
+
+
 def adapt_sox_rows_for_asset(sector_rows: list[Record], asset: Record) -> list[Record]:
     rows = []
+    meta = benchmark_metadata(asset)
     for row in sector_rows:
         item = dict(row)
+        status = 'fresh' if is_valid_sector_context(row) else 'unscored'
         item.update({
             'symbol': asset['symbol'],
             'name': asset.get('name'),
@@ -341,7 +393,9 @@ def adapt_sox_rows_for_asset(sector_rows: list[Record], asset: Record) -> list[R
             'group': asset.get('group'),
             'currency': 'USD',
             'score_currency': 'USD',
+            'score_model': 'sox_canonical',
             'benchmark_symbol': 'SOX',
+            'benchmark_as_of': row.get('date') if row.get('close') is not None else None,
             'relative_strength': 1.0,
             'relative_strength_status': 'sector baseline',
             'relative_strength_basis': 'self',
@@ -349,6 +403,11 @@ def adapt_sox_rows_for_asset(sector_rows: list[Record], asset: Record) -> list[R
             'asset_actionable_signal': bool(row.get('confirmed_top_risk')),
             'asset_setup_active': bool(row.get('setup_active')),
             'asset_setup_recent': bool(row.get('setup_recent')),
+            'sector_context_as_of': row.get('date') if is_valid_sector_context(row) else None,
+            'sector_context_lag_days': 0 if is_valid_sector_context(row) else None,
+            'sector_context_status': status,
+            'sector_context_warning': None if status == 'fresh' else 'SOX/VIX sector context is not scored for this date.',
+            **meta,
             'currency_warning': None,
         })
         rows.append(item)
@@ -372,17 +431,24 @@ def prepare_asset_price_context(asset: Record, price_rows: list[Record], sector_
     price_rows = dedupe_by_date(price_rows)
     dates = [row['date'] for row in price_rows]
     sector_by_date = align_records(dates, sector_rows)
+    valid_sector_by_date = align_records(dates, [row for row in sector_rows if is_valid_sector_context(row)])
     sox_values = align_series_values(dates, sector_rows, 'close')
+    sox_records_by_date = align_records(dates, [row for row in sector_rows if parse_float(row.get('close')) is not None])
     kospi_values = align_series_values(dates, fred_or_price_rows(kospi_rows or []), 'close')
     usdkrw_values = align_series_values(dates, fred_or_price_rows(usdkrw_rows or []), 'close')
+    meta = benchmark_metadata(asset)
     output: list[Record] = []
     for i, price_row in enumerate(price_rows):
         raw_close = parse_float(price_row.get('adj_close') or price_row.get('close'))
         if raw_close is None:
             continue
-        sector = sector_by_date.get(price_row['date']) or {}
+        raw_sector = sector_by_date.get(price_row['date']) or {}
+        sector = valid_sector_by_date.get(price_row['date']) or {}
+        context_status = sector_context_status(price_row['date'], sector)
+        context_warning = sector_context_warning(price_row['date'], sector, context_status)
         fx_rate = usdkrw_values[i]
         benchmark_close = sox_values[i]
+        benchmark_as_of = (sox_records_by_date.get(price_row['date']) or {}).get('date') if benchmark_close is not None else None
         benchmark_symbol = 'SOX'
         score_close = raw_close
         score_currency = asset.get('currency', 'USD')
@@ -393,12 +459,14 @@ def prepare_asset_price_context(asset: Record, price_rows: list[Record], sector_
                 score_close = raw_close / fx_rate
                 score_currency = 'USD'
                 benchmark_close = sox_values[i]
+                benchmark_as_of = (sox_records_by_date.get(price_row['date']) or {}).get('date') if benchmark_close is not None else None
                 benchmark_symbol = 'SOX'
                 relative_basis = 'krw_asset_usd_converted_vs_sox'
             elif kospi_values[i] is not None:
                 score_close = raw_close
                 score_currency = 'KRW'
                 benchmark_close = kospi_values[i]
+                benchmark_as_of = price_row['date']
                 benchmark_symbol = 'KOSPI'
                 relative_basis = 'krw_asset_local_vs_kospi_fx_unavailable'
                 currency_warning = 'USDKRW unavailable; using local KRW price versus KOSPI. SOX relative strength unavailable.'
@@ -438,8 +506,17 @@ def prepare_asset_price_context(asset: Record, price_rows: list[Record], sector_
             'sox_rf_score': sector.get('rf_score'),
             'sox_top_risk_score': sector.get('top_risk_score'),
             'sox_confirmed_top_risk': bool(sector.get('confirmed_top_risk')),
+            'raw_sector_context_date': raw_sector.get('date'),
+            'raw_sector_context_scored': is_valid_sector_context(raw_sector),
+            'sector_context_as_of': sector.get('date'),
+            'sector_context_lag_days': context_lag_days(price_row['date'], sector.get('date')),
+            'sector_context_status': context_status,
+            'sector_context_warning': context_warning,
             'benchmark_symbol': benchmark_symbol,
             'benchmark_close': benchmark_close,
+            'benchmark_as_of': benchmark_as_of,
+            'score_model': 'asset_vol_relative',
+            **meta,
             'fx_usdkrw': fx_rate,
             'relative_strength': rel_strength,
             'relative_strength_basis': relative_basis,
@@ -623,7 +700,12 @@ def build_asset_backtest_payload(config: Record, rows_by_symbol: dict[str, list[
         symbol = asset['symbol']
         if symbol == 'SOX':
             # SOX has its canonical backtest in risk_score_backtest.json; keep only a selector stub here.
-            assets[symbol] = {'usesCanonicalSoxBacktest': True, 'periods': {}, 'confidence': confidence_for_rows(rows_by_symbol.get(symbol, []), asset)}
+            assets[symbol] = {
+                'usesCanonicalSoxBacktest': True,
+                'periods': {},
+                'confidence': confidence_for_rows(rows_by_symbol.get(symbol, []), asset),
+                'economicValidation': {'status': 'canonical', 'summary': 'SOX uses the canonical index backtest in risk_score_backtest.json.'},
+            }
             continue
         rows = rows_by_symbol.get(symbol, [])
         assets[symbol] = build_backtest_for_rows(rows, asset)
@@ -654,10 +736,12 @@ def build_backtest_for_rows(rows: list[Record], asset: Record) -> Record:
     for period_id, period in periods.items():
         period_rows = [row for row in rows if in_period(row, period)]
         result_periods[period_id] = build_asset_period_stats(period_rows)
+    economic_validation = economic_validation_from_periods(result_periods)
     return json_ready({
         'symbol': asset['symbol'],
         'name': asset.get('name'),
-        'confidence': confidence_for_rows(rows, asset),
+        'confidence': confidence_for_rows(rows, asset, economic_validation),
+        'economicValidation': economic_validation,
         'periods': result_periods,
     })
 
@@ -711,6 +795,54 @@ def summarize_asset_signal_rows(rows: list[Record], base_downside: float | None,
     })
 
 
+def economic_validation_from_periods(periods: Record) -> Record:
+    full_vol = periods.get('full', {}).get('volAdjusted', {})
+    base_downside = (full_vol.get('baseRates') or {}).get('downsideHitRate')
+    rules = full_vol.get('ruleStats') or {}
+    primary: list[Record] = []
+    for rule_id in PRIMARY_ECONOMIC_RULES:
+        event = (rules.get(rule_id) or {}).get('event') or {}
+        primary.append({
+            'ruleId': rule_id,
+            'eventCount': event.get('eventCount'),
+            'evaluatedCount': event.get('evaluatedCount'),
+            'downsideHitRate': event.get('downsideHitRate'),
+            'downsideHitRateLift': event.get('downsideHitRateLift'),
+            'baseDownsideHitRate': base_downside,
+            'maxAdverseContinuation': event.get('maxAdverseContinuation'),
+        })
+    evaluable = [
+        item for item in primary
+        if parse_float(item.get('downsideHitRateLift')) is not None
+        and parse_float(item.get('eventCount')) is not None
+        and int(item['eventCount']) >= ECONOMIC_VALIDATION_MIN_EVENTS
+    ]
+    if not evaluable:
+        status = 'insufficient'
+        summary = 'Too few de-clustered primary-rule events to validate the asset signal economically.'
+    else:
+        best_lift = max(parse_float(item.get('downsideHitRateLift')) or 0 for item in evaluable)
+        if best_lift >= ECONOMIC_VALIDATION_PASS_LIFT:
+            status = 'validated'
+            summary = 'At least one primary event-level vol-adjusted risk rule has downside lift above the diagnostic validation threshold.'
+        elif best_lift <= 1.0:
+            status = 'weak'
+            summary = 'Primary event-level vol-adjusted risk rules do not beat the asset base downside rate; treat signals as descriptive risk overlays, not proven timing edges.'
+        else:
+            status = 'mixed'
+            summary = 'Primary event-level vol-adjusted risk rules are near base rate; economic timing evidence is mixed.'
+    return json_ready({
+        'status': status,
+        'primaryMode': 'event',
+        'primaryLabelMode': 'volAdjusted',
+        'minEvents': ECONOMIC_VALIDATION_MIN_EVENTS,
+        'passLift': ECONOMIC_VALIDATION_PASS_LIFT,
+        'baseDownsideHitRate': base_downside,
+        'primaryRules': primary,
+        'summary': summary,
+    })
+
+
 def build_asset_summary_payload(config: Record, rows_by_symbol: dict[str, list[Record]], backtest: Record, source_status: Record, errors: dict[str, str], generated_at: str) -> Record:
     assets = []
     for asset in config.get('assets', []):
@@ -719,9 +851,14 @@ def build_asset_summary_payload(config: Record, rows_by_symbol: dict[str, list[R
         latest = latest_asset_row(rows)
         bt = backtest.get('assets', {}).get(symbol, {})
         coverage = coverage_for_rows(rows)
-        confidence = bt.get('confidence') or confidence_for_rows(rows, asset)
-        warnings = warnings_for_asset(asset, coverage, latest, errors.get(symbol))
+        economic_validation = bt.get('economicValidation')
+        confidence = bt.get('confidence') or confidence_for_rows(rows, asset, economic_validation)
+        warnings = warnings_for_asset(asset, coverage, latest, errors.get(symbol), economic_validation)
         current = current_summary_for_asset(asset, latest)
+        raw_status = source_status.get('assets', {}).get(symbol, {}).get('status', 'unknown')
+        effective_status = raw_status
+        if raw_status == 'ok' and symbol != 'SOX' and current.get('sectorContextStatus') != 'fresh':
+            effective_status = 'warning'
         assets.append(json_ready({
             'symbol': symbol,
             'providerSymbol': asset.get('providerSymbol'),
@@ -730,11 +867,14 @@ def build_asset_summary_payload(config: Record, rows_by_symbol: dict[str, list[R
             'group': asset.get('group'),
             'currency': asset.get('currency'),
             'benchmark': asset.get('benchmark'),
+            **benchmark_metadata(asset),
             'current': current,
             'coverage': coverage,
             'confidence': confidence,
+            'economicValidation': economic_validation,
+            'modelValidation': economic_validation,
             'warnings': warnings,
-            'dataStatus': {'status': source_status.get('assets', {}).get(symbol, {}).get('status', 'unknown'), **source_status.get('assets', {}).get(symbol, {})},
+            'dataStatus': {**source_status.get('assets', {}).get(symbol, {}), 'status': effective_status},
             'factorBreakdown': build_asset_factor_breakdown(latest) if latest else [],
             'recentSignals': signal_history_for_asset(rows),
         }))
@@ -761,10 +901,16 @@ def build_asset_summary_payload(config: Record, rows_by_symbol: dict[str, list[R
             'vixRising': sox_current.get('vixRising'),
             'vxnRising': sox_current.get('vxnRising'),
             'vxnAvailable': sox_current.get('vxnClose') is not None,
+            'asOf': sox_current.get('sectorContextAsOf') or sox_current.get('date'),
+            'lagDays': sox_current.get('sectorContextLagDays'),
+            'status': sox_current.get('sectorContextStatus'),
+            'displayDate': sox_current.get('displayDate') or sox_current.get('date'),
         },
         'methodology': {
             'soxModelPreserved': True,
-            'assetModel': 'Volatility-adjusted OH/RF score plus relative strength versus SOX or KOSPI fallback for Korea when FX is unavailable.',
+            'scoreSemantics': 'SOX uses the canonical sector OH/RF model. Other assets use an experimental volatility-adjusted and relative-strength risk ladder; Top Risk is not a calibrated cross-asset probability.',
+            'assetModel': 'Volatility-adjusted OH/RF score plus relative strength versus an analysis benchmark/reference, usually SOX or KOSPI fallback for Korea when FX is unavailable.',
+            'benchmarkPolicy': 'officialBenchmark is issuer/index documentation where available; analysisBenchmark is the reference used for relative-strength context and can differ from the ETF official benchmark.',
             'koreaCurrencyPolicy': 'KRW prices are converted to USD using USDKRW for SOX-relative strength when available; otherwise local KOSPI relative strength is used with warning.',
             'primaryBacktestLabel': 'volAdjusted',
             'notInvestmentAdvice': True,
@@ -794,6 +940,7 @@ def compact_daily_row(row: Record) -> Record:
         'z20', 'rsi5', 'rsi14', 'rv20', 'roc20z', 'relative_strength', 'rs_ma5', 'rs_ma20',
         'rel_z20', 'oh_score', 'rf_score', 'top_risk_score', 'regime', 'asset_confirmed_risk',
         'asset_actionable_signal', 'sector_context_active', 'relative_strength_status', 'benchmark_symbol',
+        'benchmark_as_of', 'sector_context_as_of', 'sector_context_lag_days', 'sector_context_status',
         'vix_close', 'vix_ma5', 'vix_ma20', 'vix_rising', 'vxn_close', 'vxn_ma5', 'vxn_rising',
         'confirmed_top_risk', 'signal_asset_top_ge_4', 'signal_asset_confirmed_risk', 'signal_asset_actionable_signal',
     ]
@@ -831,12 +978,19 @@ def build_data_status_payload(config: Record, source_status: Record, summary: Re
 def current_summary_for_asset(asset: Record, latest: Record | None) -> Record:
     if not latest:
         return {'symbol': asset['symbol'], 'name': asset.get('name'), 'dataStatus': 'unavailable'}
+    is_sox = asset['symbol'] == 'SOX'
+    score_model = latest.get('score_model') or ('sox_canonical' if is_sox else 'asset_vol_relative')
+    score_model_label = 'Canonical SOX sector OH/RF model' if score_model == 'sox_canonical' else 'Asset-specific volatility-adjusted relative-strength model'
     return json_ready({
         'symbol': asset['symbol'],
         'name': asset.get('name'),
         'type': asset.get('type'),
         'group': asset.get('group'),
         'date': latest.get('date'),
+        'displayDate': latest.get('date'),
+        'latestScoredDate': latest.get('date') if latest.get('top_risk_score') is not None else None,
+        'scoreModel': score_model,
+        'scoreModelLabel': score_model_label,
         'close': latest.get('close'),
         'rawClose': latest.get('raw_close') or latest.get('close'),
         'currency': latest.get('currency') or asset.get('currency'),
@@ -859,8 +1013,16 @@ def current_summary_for_asset(asset: Record, latest: Record | None) -> Record:
         'relZ20': latest.get('rel_z20'),
         'benchmarkSymbol': latest.get('benchmark_symbol'),
         'benchmarkClose': latest.get('benchmark_close'),
+        'benchmarkAsOf': latest.get('benchmark_as_of'),
+        **benchmark_metadata(asset),
         'fxUsdKrw': latest.get('fx_usdkrw'),
         'currencyWarning': latest.get('currency_warning'),
+        'sectorContextAsOf': latest.get('sector_context_as_of'),
+        'sectorContextLagDays': latest.get('sector_context_lag_days'),
+        'sectorContextStatus': latest.get('sector_context_status') or ('fresh' if is_sox else 'unavailable'),
+        'sectorContextWarning': latest.get('sector_context_warning'),
+        'rawSectorContextDate': latest.get('raw_sector_context_date'),
+        'rawSectorContextScored': latest.get('raw_sector_context_scored'),
         'vixClose': latest.get('vix_close'),
         'vixRising': latest.get('vix_rising'),
         'vxnClose': latest.get('vxn_close'),
@@ -938,10 +1100,16 @@ def matrix_row(asset_summary: Record) -> Record:
         'regime': current.get('regime'),
         'confirmed': current.get('assetConfirmedRisk') or current.get('confirmation'),
         'sectorContext': current.get('sectorContextActive'),
+        'sectorContextStatus': current.get('sectorContextStatus'),
+        'sectorContextAsOf': current.get('sectorContextAsOf'),
+        'sectorContextLagDays': current.get('sectorContextLagDays'),
         'actionable': current.get('assetActionableSignal'),
         'relativeStrength': current.get('relativeStrengthStatus'),
+        'analysisBenchmark': asset_summary.get('analysisBenchmark'),
+        'officialBenchmark': asset_summary.get('officialBenchmark'),
         'dataStatus': asset_summary.get('dataStatus', {}).get('status'),
         'confidence': asset_summary.get('confidence', {}).get('level'),
+        'economicValidationStatus': asset_summary.get('economicValidation', {}).get('status'),
         'warnings': asset_summary.get('warnings'),
     })
 
@@ -961,7 +1129,7 @@ def coverage_for_rows(rows: list[Record]) -> Record:
     }
 
 
-def confidence_for_rows(rows: list[Record], asset: Record) -> Record:
+def confidence_for_rows(rows: list[Record], asset: Record, economic_validation: Record | None = None) -> Record:
     if asset.get('symbol') == 'SOX':
         return {'level': 'high', 'confirmedSignalCount': len([row for row in rows if row.get('confirmed_top_risk')]), 'reasons': ['SOX uses the canonical index model and canonical backtest.']}
     coverage = coverage_for_rows(rows)
@@ -974,16 +1142,28 @@ def confidence_for_rows(rows: list[Record], asset: Record) -> Record:
     else:
         level = 'high'
     reasons = []
+    validation_status = (economic_validation or {}).get('status')
+    if validation_status == 'weak':
+        level = 'low'
+        reasons.append('Primary event-level vol-adjusted risk rules underperform the asset base downside rate.')
+    elif validation_status == 'mixed' and level == 'high':
+        level = 'medium'
+        reasons.append('Primary event-level vol-adjusted risk rules are near base rate; confidence is capped at medium.')
+    elif validation_status == 'insufficient' and level != 'low':
+        level = 'medium'
+        reasons.append('Primary economic validation has insufficient de-clustered events; confidence is capped.')
+    elif validation_status == 'validated':
+        reasons.append('At least one primary event-level vol-adjusted risk rule shows downside lift above the diagnostic threshold.')
     if asset.get('historyWarning'):
         reasons.append(asset['historyWarning'])
     if coverage['evaluatedAbsoluteCount'] < 756:
         reasons.append('Less than roughly three trading years of evaluated history.')
     if events < 8:
         reasons.append('Few confirmed-risk events after de-clustering; interpret hit rates cautiously.')
-    return {'level': level, 'confirmedSignalCount': events, 'reasons': reasons}
+    return {'level': level, 'confirmedSignalCount': events, 'economicValidationStatus': validation_status, 'reasons': dedupe_strings(reasons)}
 
 
-def warnings_for_asset(asset: Record, coverage: Record, latest: Record | None, error: str | None = None) -> list[str]:
+def warnings_for_asset(asset: Record, coverage: Record, latest: Record | None, error: str | None = None, economic_validation: Record | None = None) -> list[str]:
     warnings = []
     if error:
         warnings.append(error)
@@ -995,6 +1175,21 @@ def warnings_for_asset(asset: Record, coverage: Record, latest: Record | None, e
         warnings.append(latest['currency_warning'])
     if latest and latest.get('vxn_close') is None:
         warnings.append('VXN optional context unavailable; sector context uses SOX/VIX only.')
+    if latest and latest.get('sector_context_warning') and asset['symbol'] != 'SOX':
+        warnings.append(latest['sector_context_warning'])
+    official = asset.get('officialBenchmark')
+    analysis = asset.get('analysisBenchmark') or {}
+    if asset.get('type') == 'ETF' and official:
+        official_name = official.get('name') or 'issuer-defined benchmark/exposure'
+        analysis_symbol = analysis.get('symbol') or asset.get('benchmark') or 'analysis benchmark'
+        warnings.append(f"{asset['symbol']} official benchmark/exposure is {official_name}; {analysis_symbol} is used only as the analysis reference for relative strength.")
+    validation_status = (economic_validation or {}).get('status')
+    if validation_status == 'weak':
+        warnings.append('Economic validation is weak: primary event-level vol-adjusted risk rules do not beat the asset base downside rate.')
+    elif validation_status == 'mixed':
+        warnings.append('Economic validation is mixed: primary event-level vol-adjusted risk rules are close to base rate.')
+    elif validation_status == 'insufficient' and asset['symbol'] != 'SOX':
+        warnings.append('Economic validation has too few de-clustered primary-rule events for a strong conclusion.')
     return dedupe_strings(warnings)
 
 

@@ -127,7 +127,7 @@ h2 { font-size: clamp(2rem, 4vw, 3.4rem); }
 h3 { font-size: clamp(1.18rem, 2vw, 1.75rem); }
 .hero-copy { max-width: 870px; margin: 24px 0 0; color: #d4d9e3; font-size: clamp(1.03rem, 1.5vw, 1.28rem); line-height: 1.76; }
 .hero-actions, .status-stack { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 28px; }
-.source-note, .section-heading p, .metric-card .detail, .action-card p, .notice p, .source-item p, small { color: var(--muted); }
+.source-note, .section-heading p, .metric-card .detail, .action-card p, .notice p, .source-item p, small, .muted-text { color: var(--muted); }
 
 .section { margin-top: 46px; }
 .section-heading { margin-bottom: 22px; }

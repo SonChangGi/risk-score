@@ -26,7 +26,7 @@
         <h1 id="page-title">SOX & Asset Top Risk Score</h1>
         <p class="hero-copy">
           뉴스가 아니라 SOX sector context와 개별 종목/ETF의 가격·추세·변동성·relative strength로 단기 고점 위험을 분리 측정합니다.
-          SOX 원본 OH/RF model은 유지하고, 개별 자산에는 volatility-adjusted OH/RF, confirmation, actionable signal, 과거 5거래일 backtest를 함께 보여줍니다.
+          SOX 원본 OH/RF model은 유지하고, 개별 자산에는 volatility-adjusted OH/RF, confirmation, actionable signal, sector-context 날짜 정합성, 과거 5거래일 backtest를 함께 보여줍니다.
         </p>
         <div class="hero-actions">
           <a href="#summary" class="primary-button">현재 리스크 보기</a>
@@ -47,7 +47,7 @@
         <div>
           <p class="eyebrow">Asset Selector</p>
           <h2 id="selector-title">SOX, 개별 종목, ETF 선택</h2>
-          <p>기본값은 SOX입니다. 개별 종목/ETF는 SOX를 sector context로 사용하고, 한국 종목은 USDKRW 환산 또는 KOSPI fallback 상태를 표시합니다.</p>
+          <p>기본값은 SOX입니다. 개별 종목/ETF는 SOX를 sector context/analysis reference로 사용하되, ETF의 official benchmark와는 분리해서 표시합니다. 한국 종목은 USDKRW 환산 또는 KOSPI fallback 상태를 표시합니다.</p>
         </div>
         <div class="asset-picker" aria-label="분석 대상 선택">
           <label for="asset-select">분석 대상</label>
@@ -57,7 +57,7 @@
       </div>
       <div class="notice compact-notice">
         <strong id="selected-asset-name">SOX</strong>
-        <span>SOX는 기존 fixed-threshold model, 개별 종목/ETF는 volatility-adjusted momentum·relative strength model을 사용합니다.</span>
+        <span>SOX는 기존 fixed-threshold canonical model, 개별 종목/ETF는 volatility-adjusted momentum·relative strength model을 사용합니다. 두 점수는 같은 확률 척도가 아닙니다.</span>
       </div>
     </section>
 
@@ -83,7 +83,7 @@
         <div>
           <p class="eyebrow">Current Risk</p>
           <h2 id="summary-title">오늘의 선택 자산 고점 리스크</h2>
-          <p>Top Risk Score는 <code>max(OH Score, RF Score)</code>입니다. SOX는 기존 model, 자산은 volatility-adjusted model이며 OH/RF는 항상 분리해서 표시합니다.</p>
+          <p>Top Risk Score는 <code>max(OH Score, RF Score)</code>인 0~5 regime ladder입니다. SOX는 canonical sector model, 자산은 volatility-adjusted/relative-strength model이며 OH/RF와 context freshness를 항상 분리해서 표시합니다.</p>
         </div>
         <div id="current-action" class="action-card">데이터 로딩 중</div>
       </div>
@@ -173,7 +173,9 @@
         <article><h3>Core data</h3><p>SOX close: FRED NASDAQSOX. VIX close: FRED VIXCLS. VXN은 optional context입니다. Browser는 generated JSON만 읽습니다.</p></article>
         <article><h3>OH Score</h3><p>SOX는 기존 z20/RSI/ROC/gap/High20 model을 유지합니다. 자산 OH는 z20, RSI5, ROC20Z, High20 proximity, RelZ20을 합산합니다.</p></article>
         <article><h3>RF Score</h3><p>자산 RF는 prior damage, volatility-adjusted rebound, MA resistance, weak momentum, relative weakness를 합산합니다.</p></article>
-        <article><h3>Confirmation</h3><p>자산 confirmed risk는 최근 setup 이후 MA5 하회, 변동성 조정 큰 하락일, 또는 relative strength 이탈로 확인합니다. actionable signal은 여기에 sector context를 더합니다.</p></article>
+        <article><h3>Confirmation</h3><p>자산 confirmed risk는 최근 setup 이후 MA5 하회, 변동성 조정 큰 하락일, 또는 relative strength 이탈로 확인합니다. actionable signal은 여기에 stale 여부가 표시되는 sector context를 더합니다.</p></article>
+        <article><h3>Benchmark semantics</h3><p>officialBenchmark는 ETF 발행사/지수 문서상 기준이고, analysisBenchmark는 이 대시보드가 relative strength와 섹터 해석에 쓰는 참조입니다. SOX가 모든 ETF의 공식 추종지수라는 의미가 아닙니다.</p></article>
+        <article><h3>Economic validation</h3><p>개별 자산은 primary rule의 event-level volatility-adjusted downside lift를 별도 진단합니다. lift가 base rate를 이기지 못하면 confidence와 warning을 낮춥니다.</p></article>
         <article><h3>Overfitting guard</h3><p>Threshold는 round number로 고정합니다. Sensitivity table은 보고용이며 default를 자동 변경하지 않습니다.</p></article>
         <article><h3>Korea / history caveats</h3><p>한국 종목은 USDKRW로 USD 환산 후 SOX 대비 RS를 계산하고, FX가 없으면 KOSPI local fallback을 warning으로 표시합니다. SNDK/DRAM은 short-history confidence flag를 표시합니다.</p></article>
       </div>
