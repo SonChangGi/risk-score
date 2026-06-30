@@ -50,6 +50,7 @@ try {
   if (!nestedHtml.includes('analysis-date-input') || !nestedHtml.includes('latest-date-button')) throw new Error('nested route missing analysis date UI');
   if (!app.includes("DATA_BASE = 'data/risk-score/'")) throw new Error('relative data path missing');
   if (!app.includes('resolveAnalysisDate') || !app.includes('selectAnalysisDate') || !app.includes('syncUrlState') || !app.includes('Nearest previous scored day')) throw new Error('analysis-date as-of URL/state logic missing');
+  if (!app.includes('resolveAnalysisDate(assetMeta.symbol, state.resolvedDate || state.requestedDate)')) throw new Error('matrix rows are not pinned to selected resolved as-of date');
   if (app.includes('query1.finance.yahoo') || app.includes('fred.stlouisfed.org')) throw new Error('browser app contains live finance endpoint');
   if (!css.includes('.asset-picker') || !css.includes('.analysis-date-controls') || !css.includes('@media (max-width: 760px)')) throw new Error('responsive asset/date CSS missing');
   if (summary.contract !== 'quant-research-summary' || summary.projectId !== 'risk-score') throw new Error('summary contract mismatch');

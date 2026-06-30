@@ -34,6 +34,7 @@ assert(contains(files.app, 'asset_risk_summary.json') && contains(files.app, 'as
 assert(contains(files.app, 'renderRiskMatrix') && contains(files.app, 'selectAsset'), 'asset matrix and selector renderer exist');
 assert(contains(files.app, 'resolveAnalysisDate') && contains(files.app, 'selectAnalysisDate') && contains(files.app, 'syncUrlState'), 'analysis date URL/state helpers exist');
 assert(contains(files.app, 'Nearest previous scored day') && contains(files.app, 'selectedChartRows') && contains(files.app, 'Selected-date outcome'), 'selected date drives as-of charts and outcome panel');
+assert(contains(files.app, 'resolveAnalysisDate(assetMeta.symbol, state.resolvedDate || state.requestedDate)'), 'matrix rows resolve no later than selected as-of date');
 assert(contains(files.app, 'assetActionableSignal') && contains(files.app, 'sectorContextActive'), 'confirmed risk and actionable signal separated');
 assert(contains(files.app, 'sectorContextAsOf') && contains(files.app, 'sectorContextStatus') && contains(files.app, 'sectorContextLagDays'), 'UI surfaces sector context date/status/lag');
 assert(contains(files.app, 'SOXQ proxy') && contains(files.app, 'Benchmark overlay') && contains(files.app, 'YTD validation'), 'UI surfaces SOXQ proxy and YTD diagnostics');

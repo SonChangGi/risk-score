@@ -705,7 +705,7 @@
     const latestMatrix = new Map((state.assetSummary?.matrix || []).map((row) => [row.symbol, row]));
     return assets.map((assetMeta) => {
       const asset = state.assetSummary?.bySymbol?.[assetMeta.symbol] || assetMeta;
-      const resolution = resolveAnalysisDate(assetMeta.symbol, state.requestedDate);
+      const resolution = resolveAnalysisDate(assetMeta.symbol, state.resolvedDate || state.requestedDate);
       if (!resolution.row) return latestMatrix.get(assetMeta.symbol) || { symbol: assetMeta.symbol, name: assetMeta.name, type: assetMeta.type };
       const current = currentFromRow(resolution.row, asset);
       const validation = asset?.economicValidation || {};
