@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 import math
+import os
 import time
 import urllib.parse
 from copy import deepcopy
@@ -15,11 +16,8 @@ from risk_score.model import (
     DEFAULT_THRESHOLDS,
     build_periods,
     classify_regime,
-    compute_confirmation,
     compute_forward_labels,
     compute_indicators,
-    compute_oh_score,
-    compute_rf_score,
     json_ready,
     latest_scored_row,
     mean_bool,
@@ -29,8 +27,6 @@ from risk_score.model import (
     parse_iso_date,
     ratio_or_none,
     rolling_mean,
-    rolling_min,
-    rolling_max,
     rolling_std,
     run_pipeline,
     safe_ratio,
@@ -43,6 +39,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_UNIVERSE_PATH = ROOT / 'config' / 'asset_universe.json'
 YAHOO_PERIOD1 = int(datetime(2004, 1, 1, tzinfo=UTC).timestamp())
 USER_AGENT = 'Mozilla/5.0 (compatible; risk-score/0.2; +https://github.com/SonChangGi/risk-score)'
+FMP_API_KEY_ENV = 'FMP_API_KEY'
 
 ASSET_THRESHOLDS: dict[str, float] = {
     'z20_overheat': 1.5,
@@ -71,6 +68,9 @@ ASSET_RULES: list[tuple[str, str, str]] = [
     ('asset_confirmed_risk', 'asset_confirmed_risk', 'Asset setup confirmed by price/relative rollover'),
     ('asset_actionable_signal', 'asset_actionable_signal', 'Asset confirmation plus active sector context'),
     ('asset_top_ge_4_sector_context', 'Asset Top >= 4 AND sector context', 'Leading setup aligned with SOX/VIX/VXN context'),
+    ('relative_weakness_sector_context', 'Relative weakness + sector context', 'Asset relative weakness aligned with SOX/VIX/VXN context'),
+    ('sector_context_active', 'Sector context active', 'SOX canonical risk or volatility context only'),
+    ('sox_confirmed_top_risk', 'SOX confirmed_top_risk', 'Canonical SOX confirmation used as sector overlay'),
     ('rsi14_gt_70', 'RSI14 > 70', 'Single-factor overbought baseline'),
     ('rsi5_gt_70', 'RSI5 > 70', 'Single-factor short RSI baseline'),
     ('z20_gt_1_5', 'z20 > 1.5', 'Single-factor 20D z-score baseline'),
@@ -84,6 +84,7 @@ PRIMARY_ECONOMIC_RULES = (
     'asset_confirmed_risk',
     'asset_actionable_signal',
     'asset_top_ge_4_sector_context',
+    'relative_weakness_sector_context',
 )
 
 ECONOMIC_VALIDATION_MIN_EVENTS = 5
@@ -113,6 +114,34 @@ def load_universe_config(path: str | Path = DEFAULT_UNIVERSE_PATH) -> Record:
     if missing:
         raise ValueError(f'asset universe missing required symbols: {sorted(missing)}')
     return config
+
+
+def fmp_symbol_for_asset(asset: Record) -> str | None:
+    explicit = asset.get('fmpSymbol')
+    if explicit:
+        return str(explicit)
+    symbol = str(asset.get('providerSymbol') or asset.get('symbol') or '').strip()
+    if not symbol or asset.get('currency') != 'USD':
+        return None
+    if symbol.startswith('^') or symbol.endswith('.KS'):
+        return None
+    return symbol
+
+
+def provider_policy() -> Record:
+    return {
+        'browserLiveFetch': False,
+        'priceProviderPriority': ['manual_csv_override', 'yahoo_chart_primary', 'fmp_historical_eod_fallback_if_FMP_API_KEY'],
+        'contextProviderPriority': ['FRED CSV for SOX/VIX/VXN', 'Yahoo chart for optional KOSPI/USDKRW'],
+        'manualFallbackPath': 'data/risk-score/manual_prices/{symbol}.csv',
+        'apiKeyFallbacks': [{'provider': 'Financial Modeling Prep', 'env': FMP_API_KEY_ENV, 'endpoint': 'stable/historical-price-eod/full'}],
+        'disabledCandidates': [{'provider': 'Stooq CSV', 'reason': 'Observed JavaScript/browser challenge from this runtime; not used as an automated fallback.'}],
+        'notes': [
+            'Generated JSON is the browser contract; provider access happens only in the update script.',
+            'FMP fallback is optional and activates only when FMP_API_KEY is available.',
+            'Manual CSV overrides are intended for provider outages, short-history corrections, or audited institutional exports.',
+        ],
+    }
 
 
 def fetch_yahoo_daily_prices(symbol: str, *, period1: int = YAHOO_PERIOD1, period2: int | None = None) -> list[Record]:
@@ -163,6 +192,41 @@ def http_json(url: str) -> Any:
         return json.loads(response.read().decode('utf-8', 'replace'))
 
 
+def fetch_fmp_daily_prices(symbol: str, *, api_key: str | None = None) -> list[Record]:
+    api_key = api_key or os.environ.get(FMP_API_KEY_ENV)
+    if not api_key:
+        raise ValueError(f'{FMP_API_KEY_ENV} is not set')
+    query = urllib.parse.urlencode({'symbol': symbol, 'apikey': api_key})
+    url = f'https://financialmodelingprep.com/stable/historical-price-eod/full?{query}'
+    payload = http_json(url)
+    if isinstance(payload, dict) and payload.get('Error Message'):
+        raise ValueError(str(payload.get('Error Message')))
+    raw_rows = payload if isinstance(payload, list) else payload.get('historical') if isinstance(payload, dict) else None
+    if not isinstance(raw_rows, list):
+        raise ValueError(f'{symbol}: unexpected FMP payload shape')
+    rows: list[Record] = []
+    for row in raw_rows:
+        if not isinstance(row, dict):
+            continue
+        day = row.get('date')
+        close = parse_float(row.get('adjClose') or row.get('adj_close') or row.get('close'))
+        if not day or close is None:
+            continue
+        rows.append({
+            'date': str(day)[:10],
+            'open': parse_float(row.get('open')),
+            'high': parse_float(row.get('high')),
+            'low': parse_float(row.get('low')),
+            'close': parse_float(row.get('close')) or close,
+            'adj_close': close,
+            'volume': parse_float(row.get('volume')),
+            'source': 'fmp_historical_eod',
+        })
+    if not rows:
+        raise ValueError(f'{symbol}: no usable FMP historical rows')
+    return dedupe_by_date(rows)
+
+
 def read_manual_prices(path: Path) -> list[Record]:
     rows: list[Record] = []
     with path.open(newline='', encoding='utf-8') as handle:
@@ -190,13 +254,63 @@ def read_manual_prices(path: Path) -> list[Record]:
 
 def fetch_or_load_prices(asset: Record, manual_dirs: list[Path]) -> tuple[list[Record], Record]:
     symbol = asset['symbol']
+    attempts: list[Record] = []
     for directory in manual_dirs:
         path = directory / f'{symbol}.csv'
         if path.exists():
-            return read_manual_prices(path), {'status': 'ok', 'source': 'manual_csv', 'path': str(path)}
+            try:
+                rows = read_manual_prices(path)
+                attempts.append({'provider': 'manual_csv', 'status': 'ok', 'path': str(path), 'rowCount': len(rows)})
+                return rows, {
+                    'status': 'ok',
+                    'source': 'manual_csv',
+                    'path': str(path),
+                    'rowCount': len(rows),
+                    'fallbackUsed': False,
+                    'providerAttempts': attempts,
+                    'adjustmentPolicy': 'manual CSV adj_close preferred; close fallback allowed',
+                }
+            except Exception as exc:  # noqa: BLE001 - continue to network providers if manual override is malformed.
+                attempts.append({'provider': 'manual_csv', 'status': 'error', 'path': str(path), 'error': f'{type(exc).__name__}: {exc}'})
     provider_symbol = asset.get('providerSymbol') or symbol
-    rows = fetch_yahoo_daily_prices(provider_symbol)
-    return rows, {'status': 'ok', 'source': 'yahoo_chart', 'providerSymbol': provider_symbol, 'rowCount': len(rows)}
+    yahoo_error: Exception | None = None
+    try:
+        rows = fetch_yahoo_daily_prices(provider_symbol)
+        attempts.append({'provider': 'yahoo_chart', 'status': 'ok', 'providerSymbol': provider_symbol, 'rowCount': len(rows)})
+        return rows, {
+            'status': 'ok',
+            'source': 'yahoo_chart',
+            'providerSymbol': provider_symbol,
+            'rowCount': len(rows),
+            'fallbackUsed': False,
+            'providerAttempts': attempts,
+            'adjustmentPolicy': 'Yahoo adjusted close preferred via includeAdjustedClose=true',
+        }
+    except Exception as exc:  # noqa: BLE001 - try optional authenticated fallback before failing asset.
+        yahoo_error = exc
+        attempts.append({'provider': 'yahoo_chart', 'status': 'error', 'providerSymbol': provider_symbol, 'error': f'{type(exc).__name__}: {exc}'})
+    fmp_symbol = fmp_symbol_for_asset(asset)
+    if fmp_symbol:
+        if os.environ.get(FMP_API_KEY_ENV):
+            try:
+                rows = fetch_fmp_daily_prices(fmp_symbol)
+                attempts.append({'provider': 'fmp_historical_eod', 'status': 'ok', 'providerSymbol': fmp_symbol, 'rowCount': len(rows)})
+                return rows, {
+                    'status': 'ok',
+                    'source': 'fmp_historical_eod',
+                    'providerSymbol': fmp_symbol,
+                    'rowCount': len(rows),
+                    'fallbackUsed': True,
+                    'providerAttempts': attempts,
+                    'adjustmentPolicy': 'FMP adjClose preferred when present; close fallback may differ from Yahoo total-return adjustment',
+                }
+            except Exception as exc:  # noqa: BLE001
+                attempts.append({'provider': 'fmp_historical_eod', 'status': 'error', 'providerSymbol': fmp_symbol, 'error': f'{type(exc).__name__}: {exc}'})
+        else:
+            attempts.append({'provider': 'fmp_historical_eod', 'status': 'skipped', 'providerSymbol': fmp_symbol, 'reason': f'{FMP_API_KEY_ENV} not set'})
+    else:
+        attempts.append({'provider': 'fmp_historical_eod', 'status': 'skipped', 'reason': 'no compatible USD provider symbol'})
+    raise ValueError(f'{symbol}: all price providers failed; primary error: {type(yahoo_error).__name__}: {yahoo_error}; attempts={attempts}')
 
 
 def generate_asset_payloads(
@@ -685,6 +799,11 @@ def add_asset_rule_signals(rows: list[Record]) -> list[Record]:
         row['signal_asset_confirmed_risk'] = bool(row.get('asset_confirmed_risk'))
         row['signal_asset_actionable_signal'] = bool(row.get('asset_actionable_signal'))
         row['signal_asset_top_ge_4_sector_context'] = bool(row.get('signal_asset_top_ge_4')) and bool(row.get('sector_context_active'))
+        rel_z = parse_float(row.get('rel_z20'))
+        rf_relative_weakness = bool((row.get('rf_factors') or {}).get('relative_weakness'))
+        row['signal_relative_weakness_sector_context'] = bool(row.get('sector_context_active')) and (bool(row.get('relative_rollover')) or rf_relative_weakness or (rel_z is not None and rel_z < -1.0))
+        row['signal_sector_context_active'] = bool(row.get('sector_context_active'))
+        row['signal_sox_confirmed_top_risk'] = bool(row.get('sox_confirmed_top_risk'))
         row['signal_rsi14_gt_70'] = parse_float(row.get('rsi14')) is not None and row['rsi14'] > 70
         row['signal_rsi5_gt_70'] = parse_float(row.get('rsi5')) is not None and row['rsi5'] > 70
         row['signal_z20_gt_1_5'] = parse_float(row.get('z20')) is not None and row['z20'] > ASSET_THRESHOLDS['z20_overheat']
@@ -709,6 +828,7 @@ def build_asset_backtest_payload(config: Record, rows_by_symbol: dict[str, list[
             continue
         rows = rows_by_symbol.get(symbol, [])
         assets[symbol] = build_backtest_for_rows(rows, asset)
+    cross_asset_validation = build_cross_asset_validation(config, assets)
     return json_ready({
         'schemaVersion': 1,
         'contract': 'asset-risk-backtest',
@@ -721,11 +841,63 @@ def build_asset_backtest_payload(config: Record, rows_by_symbol: dict[str, list[
         'rules': [{'id': rule_id, 'label': label, 'description': description} for rule_id, label, description in ASSET_RULES],
         'periods': period_labels_for_latest(rows_by_symbol),
         'assets': assets,
+        'crossAssetValidation': cross_asset_validation,
         'notes': [
             'SOX keeps the original canonical fixed -5% backtest in risk_score_backtest.json.',
             'Single stocks/ETFs prioritize volatility-adjusted labels; absolute labels remain available for comparison.',
             'Event-level statistics use a 5-trading-day cooldown per asset.',
         ],
+    })
+
+
+def build_cross_asset_validation(config: Record, assets: dict[str, Any]) -> Record:
+    rows: list[Record] = []
+    by_config = {asset['symbol']: asset for asset in config.get('assets', [])}
+    for symbol, payload in assets.items():
+        if symbol == 'SOX':
+            continue
+        validation = payload.get('economicValidation') or {}
+        best_rule = validation.get('bestRule') or {}
+        rows.append({
+            'symbol': symbol,
+            'group': by_config.get(symbol, {}).get('group'),
+            'type': by_config.get(symbol, {}).get('type'),
+            'status': validation.get('status'),
+            'validationScore': validation.get('validationScore'),
+            'bestRuleId': best_rule.get('ruleId'),
+            'bestRuleLabel': best_rule.get('label'),
+            'bestDownsideLift': best_rule.get('downsideHitRateLift'),
+            'bestEventCount': best_rule.get('eventCount'),
+            'baseDownsideHitRate': validation.get('baseDownsideHitRate'),
+        })
+    status_counts: dict[str, int] = {}
+    group_counts: dict[str, Record] = {}
+    for row in rows:
+        status = row.get('status') or 'unknown'
+        status_counts[status] = status_counts.get(status, 0) + 1
+        group = row.get('group') or 'Other'
+        group_bucket = group_counts.setdefault(group, {'assetCount': 0, 'strongOrValidated': 0, 'weak': 0, 'insufficient': 0, 'avgValidationScore': None, '_scores': []})
+        group_bucket['assetCount'] += 1
+        if status in ('strong', 'validated'):
+            group_bucket['strongOrValidated'] += 1
+        elif status == 'weak':
+            group_bucket['weak'] += 1
+        elif status == 'insufficient':
+            group_bucket['insufficient'] += 1
+        if parse_float(row.get('validationScore')) is not None:
+            group_bucket['_scores'].append(row['validationScore'])
+    for group_bucket in group_counts.values():
+        group_bucket['avgValidationScore'] = mean_float(group_bucket.pop('_scores'))
+    strong_or_validated = [row for row in rows if row.get('status') in ('strong', 'validated')]
+    weak = [row for row in rows if row.get('status') == 'weak']
+    return json_ready({
+        'assetCount': len(rows),
+        'statusCounts': status_counts,
+        'groupDiagnostics': group_counts,
+        'strongOrValidatedAssets': strong_or_validated,
+        'weakAssets': weak,
+        'summary': f"{len(strong_or_validated)} of {len(rows)} non-SOX assets have at least one primary event-level vol-adjusted rule above the diagnostic lift threshold; {len(weak)} are weak and should be treated as descriptive overlays.",
+        'antiOverfitPolicy': 'Thresholds are not optimized per ticker; validation reports where the fixed rules work or fail.',
     })
 
 
@@ -768,9 +940,40 @@ def build_asset_period_stats(rows: list[Record]) -> Record:
         stats_by_label_mode[label_mode] = {
             'sampleCount': len(valid_rows),
             'baseRates': {'downsideHitRate': base_downside, 'strictTopHitRate': base_strict},
+            'scoreBuckets': summarize_score_buckets(valid_rows, downside_key, strict_key),
             'ruleStats': rule_stats,
         }
     return json_ready(stats_by_label_mode)
+
+
+def summarize_score_buckets(rows: list[Record], downside_key: str, strict_key: str) -> Record:
+    by_score: dict[str, Record] = {}
+    for score in range(6):
+        bucket_rows = [row for row in rows if parse_float(row.get('top_risk_score')) == score]
+        by_score[str(score)] = summarize_bucket_rows(bucket_rows, downside_key, strict_key)
+    normal_rows = [row for row in rows if (parse_float(row.get('top_risk_score')) is not None and row['top_risk_score'] <= 2)]
+    high_rows = [row for row in rows if (parse_float(row.get('top_risk_score')) is not None and row['top_risk_score'] >= 4)]
+    normal = summarize_bucket_rows(normal_rows, downside_key, strict_key)
+    high = summarize_bucket_rows(high_rows, downside_key, strict_key)
+    return json_ready({
+        'byScore': by_score,
+        'normalOrLowRisk': normal,
+        'highRiskOrRed': high,
+        'highVsNormalDownsideLift': ratio_or_none(high.get('downsideHitRate'), normal.get('downsideHitRate')),
+        'diagnostic': 'Compares realized forward downside frequency by top-risk bucket; it is diagnostic only and does not re-tune thresholds.',
+    })
+
+
+def summarize_bucket_rows(rows: list[Record], downside_key: str, strict_key: str) -> Record:
+    fwd_min = [row['fwd_min_5'] for row in rows if parse_float(row.get('fwd_min_5')) is not None]
+    fwd_ret = [row['fwd_ret_5'] for row in rows if parse_float(row.get('fwd_ret_5')) is not None]
+    return json_ready({
+        'count': len(rows),
+        'downsideHitRate': mean_bool(row.get(downside_key) for row in rows),
+        'strictTopHitRate': mean_bool(row.get(strict_key) for row in rows),
+        'avgFwdMin5': mean_float(fwd_min),
+        'avgFwdRet5': mean_float(fwd_ret),
+    })
 
 
 def summarize_asset_signal_rows(rows: list[Record], base_downside: float | None, base_strict: float | None, signal_count: int, event_count: int, downside_key: str, strict_key: str) -> Record:
@@ -799,15 +1002,20 @@ def economic_validation_from_periods(periods: Record) -> Record:
     full_vol = periods.get('full', {}).get('volAdjusted', {})
     base_downside = (full_vol.get('baseRates') or {}).get('downsideHitRate')
     rules = full_vol.get('ruleStats') or {}
+    labels = {rule_id: label for rule_id, label, _description in ASSET_RULES}
     primary: list[Record] = []
     for rule_id in PRIMARY_ECONOMIC_RULES:
         event = (rules.get(rule_id) or {}).get('event') or {}
         primary.append({
             'ruleId': rule_id,
+            'label': labels.get(rule_id, rule_id),
             'eventCount': event.get('eventCount'),
             'evaluatedCount': event.get('evaluatedCount'),
             'downsideHitRate': event.get('downsideHitRate'),
             'downsideHitRateLift': event.get('downsideHitRateLift'),
+            'strictTopHitRate': event.get('strictTopHitRate'),
+            'avgFwdMin5': event.get('avgFwdMin5'),
+            'avgFwdRet5': event.get('avgFwdRet5'),
             'baseDownsideHitRate': base_downside,
             'maxAdverseContinuation': event.get('maxAdverseContinuation'),
         })
@@ -817,15 +1025,30 @@ def economic_validation_from_periods(periods: Record) -> Record:
         and parse_float(item.get('eventCount')) is not None
         and int(item['eventCount']) >= ECONOMIC_VALIDATION_MIN_EVENTS
     ]
+    score_buckets = full_vol.get('scoreBuckets') or {}
+    bucket_lift = parse_float(score_buckets.get('highVsNormalDownsideLift'))
+    best_rule = max(evaluable, key=lambda item: parse_float(item.get('downsideHitRateLift')) or -math.inf) if evaluable else None
+    validated_rules = [
+        item for item in evaluable
+        if (parse_float(item.get('downsideHitRateLift')) or 0) >= ECONOMIC_VALIDATION_PASS_LIFT
+    ]
+    weak_rules = [
+        item for item in evaluable
+        if (parse_float(item.get('downsideHitRateLift')) or 0) <= 1.0
+    ]
+    validation_score = economic_validation_score(evaluable, bucket_lift)
     if not evaluable:
         status = 'insufficient'
         summary = 'Too few de-clustered primary-rule events to validate the asset signal economically.'
     else:
         best_lift = max(parse_float(item.get('downsideHitRateLift')) or 0 for item in evaluable)
-        if best_lift >= ECONOMIC_VALIDATION_PASS_LIFT:
+        if best_lift >= 1.20 and (bucket_lift is None or bucket_lift >= ECONOMIC_VALIDATION_PASS_LIFT):
+            status = 'strong'
+            summary = 'Primary event-level vol-adjusted rules and/or score-bucket diagnostics show strong downside lift versus the asset base rate.'
+        elif best_lift >= ECONOMIC_VALIDATION_PASS_LIFT:
             status = 'validated'
             summary = 'At least one primary event-level vol-adjusted risk rule has downside lift above the diagnostic validation threshold.'
-        elif best_lift <= 1.0:
+        elif best_lift <= 1.0 and (bucket_lift is None or bucket_lift <= 1.0):
             status = 'weak'
             summary = 'Primary event-level vol-adjusted risk rules do not beat the asset base downside rate; treat signals as descriptive risk overlays, not proven timing edges.'
         else:
@@ -839,8 +1062,26 @@ def economic_validation_from_periods(periods: Record) -> Record:
         'passLift': ECONOMIC_VALIDATION_PASS_LIFT,
         'baseDownsideHitRate': base_downside,
         'primaryRules': primary,
+        'bestRule': best_rule,
+        'validatedRules': validated_rules,
+        'weakRules': weak_rules,
+        'scoreBucketDiagnostics': score_buckets,
+        'validationScore': validation_score,
+        'validationScoreScale': '0-100 diagnostic evidence score; not a calibrated probability.',
         'summary': summary,
     })
+
+
+def economic_validation_score(evaluable: list[Record], bucket_lift: float | None) -> int:
+    if not evaluable:
+        return 20
+    best_lift = max(parse_float(item.get('downsideHitRateLift')) or 0 for item in evaluable)
+    event_count = max(int(parse_float(item.get('eventCount')) or 0) for item in evaluable)
+    lift_component = max(min((best_lift - 1.0) / 0.5, 1.0), -1.0) * 35
+    event_component = min(event_count / 20, 1.0) * 20
+    bucket_component = 0 if bucket_lift is None else max(min((bucket_lift - 1.0) / 0.5, 1.0), -1.0) * 20
+    score = 45 + lift_component + event_component + bucket_component
+    return int(max(0, min(100, round(score))))
 
 
 def build_asset_summary_payload(config: Record, rows_by_symbol: dict[str, list[Record]], backtest: Record, source_status: Record, errors: dict[str, str], generated_at: str) -> Record:
@@ -859,6 +1100,9 @@ def build_asset_summary_payload(config: Record, rows_by_symbol: dict[str, list[R
         effective_status = raw_status
         if raw_status == 'ok' and symbol != 'SOX' and current.get('sectorContextStatus') != 'fresh':
             effective_status = 'warning'
+        data_status = {**source_status.get('assets', {}).get(symbol, {}), 'status': effective_status}
+        data_quality = data_quality_for_asset(asset, coverage, current, data_status, generated_at, errors.get(symbol))
+        warnings = dedupe_strings(warnings + data_quality.get('warnings', []))
         assets.append(json_ready({
             'symbol': symbol,
             'providerSymbol': asset.get('providerSymbol'),
@@ -874,7 +1118,8 @@ def build_asset_summary_payload(config: Record, rows_by_symbol: dict[str, list[R
             'economicValidation': economic_validation,
             'modelValidation': economic_validation,
             'warnings': warnings,
-            'dataStatus': {**source_status.get('assets', {}).get(symbol, {}), 'status': effective_status},
+            'dataStatus': data_status,
+            'dataQuality': data_quality,
             'factorBreakdown': build_asset_factor_breakdown(latest) if latest else [],
             'recentSignals': signal_history_for_asset(rows),
         }))
@@ -893,6 +1138,7 @@ def build_asset_summary_payload(config: Record, rows_by_symbol: dict[str, list[R
         'assets': assets,
         'bySymbol': by_symbol,
         'matrix': matrix,
+        'crossAssetValidation': backtest.get('crossAssetValidation'),
         'sectorContextLatest': {
             'active': sox_current.get('sectorContextActive'),
             'soxOhScore': sox_current.get('soxOhScore') or sox_current.get('ohScore'),
@@ -913,8 +1159,49 @@ def build_asset_summary_payload(config: Record, rows_by_symbol: dict[str, list[R
             'benchmarkPolicy': 'officialBenchmark is issuer/index documentation where available; analysisBenchmark is the reference used for relative-strength context and can differ from the ETF official benchmark.',
             'koreaCurrencyPolicy': 'KRW prices are converted to USD using USDKRW for SOX-relative strength when available; otherwise local KOSPI relative strength is used with warning.',
             'primaryBacktestLabel': 'volAdjusted',
+            'dataProviderPolicy': provider_policy(),
+            'economicValidationPolicy': 'Report event-level lift, score-bucket diagnostics, and cross-asset evidence without ticker-specific threshold optimization.',
             'notInvestmentAdvice': True,
         },
+    })
+
+
+def data_quality_for_asset(asset: Record, coverage: Record, current: Record, data_status: Record, generated_at: str, error: str | None = None) -> Record:
+    warnings: list[str] = []
+    status = data_status.get('status') or 'unknown'
+    generated_day = parse_iso_date(generated_at[:10])
+    latest_day = parse_iso_date(current.get('date'))
+    latest_lag_days = None if generated_day is None or latest_day is None else max((generated_day - latest_day).days, 0)
+    if error:
+        warnings.append(error)
+    if status in ('error', 'unavailable'):
+        warnings.append('Primary price data is unavailable for this asset.')
+    if latest_lag_days is not None and latest_lag_days > 5:
+        warnings.append(f'Latest asset price is {latest_lag_days} calendar days behind generation time.')
+    if asset.get('symbol') != 'SOX' and current.get('sectorContextStatus') != 'fresh':
+        warnings.append('Sector context is not same-day fresh; actionable interpretation is downgraded.')
+    if coverage.get('rowCount', 0) < 252 and asset.get('symbol') != 'SOX':
+        warnings.append('Less than roughly one trading year of price history.')
+    attempts = data_status.get('providerAttempts') or []
+    if any(item.get('status') == 'error' for item in attempts):
+        warnings.append('At least one provider attempt failed before a fallback/skip path was recorded.')
+    level = 'ok'
+    if status in ('error', 'unavailable'):
+        level = 'degraded'
+    elif warnings or status == 'warning':
+        level = 'warning'
+    return json_ready({
+        'level': level,
+        'latestLagDays': latest_lag_days,
+        'source': data_status.get('source'),
+        'providerSymbol': data_status.get('providerSymbol'),
+        'fallbackUsed': bool(data_status.get('fallbackUsed')),
+        'rowCount': coverage.get('rowCount'),
+        'scoredCount': coverage.get('scoredCount'),
+        'evaluatedVolAdjustedCount': coverage.get('evaluatedVolAdjustedCount'),
+        'providerAttempts': attempts,
+        'adjustmentPolicy': data_status.get('adjustmentPolicy'),
+        'warnings': dedupe_strings(warnings),
     })
 
 
@@ -943,6 +1230,7 @@ def compact_daily_row(row: Record) -> Record:
         'benchmark_as_of', 'sector_context_as_of', 'sector_context_lag_days', 'sector_context_status',
         'vix_close', 'vix_ma5', 'vix_ma20', 'vix_rising', 'vxn_close', 'vxn_ma5', 'vxn_rising',
         'confirmed_top_risk', 'signal_asset_top_ge_4', 'signal_asset_confirmed_risk', 'signal_asset_actionable_signal',
+        'signal_relative_weakness_sector_context', 'signal_sector_context_active', 'signal_sox_confirmed_top_risk',
     ]
     return {key: row.get(key) for key in keys if key in row}
 
@@ -960,8 +1248,9 @@ def build_universe_payload(config: Record, generated_at: str) -> Record:
 
 def build_data_status_payload(config: Record, source_status: Record, summary: Record, generated_at: str) -> Record:
     statuses = [asset.get('dataStatus', {}).get('status') for asset in summary.get('assets', [])]
+    quality_levels = [asset.get('dataQuality', {}).get('level') for asset in summary.get('assets', [])]
     status = 'ok' if all(item == 'ok' for item in statuses if item) else 'warning'
-    if any(item == 'error' for item in statuses):
+    if any(item == 'error' for item in statuses) or any(level == 'degraded' for level in quality_levels):
         status = 'degraded'
     return json_ready({
         'schemaVersion': 1,
@@ -971,6 +1260,8 @@ def build_data_status_payload(config: Record, source_status: Record, summary: Re
         'status': status,
         'requiredUniverseCount': len(config.get('assets', [])),
         'availableAssetCount': len([asset for asset in summary.get('assets', []) if asset.get('coverage', {}).get('rowCount', 0) > 0]),
+        'qualityCounts': {level: quality_levels.count(level) for level in sorted(set(level for level in quality_levels if level))},
+        'providerPolicy': provider_policy(),
         'sourceStatus': source_status,
     })
 
@@ -1108,8 +1399,11 @@ def matrix_row(asset_summary: Record) -> Record:
         'analysisBenchmark': asset_summary.get('analysisBenchmark'),
         'officialBenchmark': asset_summary.get('officialBenchmark'),
         'dataStatus': asset_summary.get('dataStatus', {}).get('status'),
+        'dataQuality': asset_summary.get('dataQuality', {}).get('level'),
+        'dataProvider': asset_summary.get('dataQuality', {}).get('source') or asset_summary.get('dataStatus', {}).get('source'),
         'confidence': asset_summary.get('confidence', {}).get('level'),
         'economicValidationStatus': asset_summary.get('economicValidation', {}).get('status'),
+        'validationScore': asset_summary.get('economicValidation', {}).get('validationScore'),
         'warnings': asset_summary.get('warnings'),
     })
 
@@ -1152,7 +1446,7 @@ def confidence_for_rows(rows: list[Record], asset: Record, economic_validation: 
     elif validation_status == 'insufficient' and level != 'low':
         level = 'medium'
         reasons.append('Primary economic validation has insufficient de-clustered events; confidence is capped.')
-    elif validation_status == 'validated':
+    elif validation_status in ('strong', 'validated'):
         reasons.append('At least one primary event-level vol-adjusted risk rule shows downside lift above the diagnostic threshold.')
     if asset.get('historyWarning'):
         reasons.append(asset['historyWarning'])

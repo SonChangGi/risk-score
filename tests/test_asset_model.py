@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from datetime import date, timedelta
 from pathlib import Path
 
+import risk_score.asset_model as asset_model_module
 from risk_score.asset_model import (
     ASSET_THRESHOLDS,
     confidence_for_rows,
     economic_validation_from_periods,
     export_asset_json_outputs,
+    fetch_or_load_prices,
+    fmp_symbol_for_asset,
     generate_asset_payloads,
     load_universe_config,
     run_asset_pipeline,
@@ -120,8 +124,12 @@ class AssetModelTests(unittest.TestCase):
         self.assertIn('rowsBySymbol', payloads['daily'])
         self.assertIn('MU', payloads['backtest']['assets'])
         self.assertIn('volAdjusted', payloads['backtest']['assets']['MU']['periods']['full'])
+        self.assertIn('crossAssetValidation', payloads['backtest'])
+        self.assertIn('relative_weakness_sector_context', [rule['id'] for rule in payloads['backtest']['rules']])
         self.assertTrue(payloads['summary']['bySymbol']['SOX']['current']['topRiskScore'] is not None)
         self.assertEqual(payloads['summary']['bySymbol']['DRAM']['confidence']['level'], 'low')
+        self.assertIn('dataQuality', payloads['summary']['bySymbol']['MU'])
+        self.assertIn('providerPolicy', payloads['dataStatus'])
 
     def test_asset_json_export_writes_new_files(self):
         sox, vix = sox_vix_rows()
@@ -167,13 +175,15 @@ class AssetModelTests(unittest.TestCase):
                     'baseRates': {'downsideHitRate': 0.1},
                     'ruleStats': {
                         rule: {'event': {'eventCount': 10, 'evaluatedCount': 10, 'downsideHitRate': 0.08, 'downsideHitRateLift': 0.8}}
-                        for rule in ('asset_top_ge_4', 'asset_confirmed_risk', 'asset_actionable_signal', 'asset_top_ge_4_sector_context')
+                        for rule in ('asset_top_ge_4', 'asset_confirmed_risk', 'asset_actionable_signal', 'asset_top_ge_4_sector_context', 'relative_weakness_sector_context')
                     },
                 }
             }
         }
         validation = economic_validation_from_periods(fake_periods)
         self.assertEqual(validation['status'], 'weak')
+        self.assertIn('validationScore', validation)
+        self.assertTrue(validation['weakRules'])
         asset = {'symbol': 'SOXX', 'type': 'ETF'}
         rows = [{'date': dated_rows(900)[i], 'downside_event_5d': False, 'vol_adj_downside_5d': False, 'signal_asset_confirmed_risk': i % 20 == 0} for i in range(900)]
         confidence = confidence_for_rows(rows, asset, validation)
@@ -199,6 +209,45 @@ class AssetModelTests(unittest.TestCase):
         self.assertIn('analysisBenchmark', mu)
         self.assertIn('scoreModel', mu['current'])
         self.assertIn('latestScoredDate', mu['current'])
+        self.assertIn('validationScore', mu['economicValidation'])
+        self.assertIn('dataQuality', mu)
+        self.assertIn('providerAttempts', mu['dataQuality'])
+
+    def test_provider_symbol_policy_supports_fmp_only_for_usd_assets(self):
+        self.assertEqual(fmp_symbol_for_asset({'symbol': 'MU', 'providerSymbol': 'MU', 'currency': 'USD'}), 'MU')
+        self.assertEqual(fmp_symbol_for_asset({'symbol': 'SOXX', 'providerSymbol': 'SOXX', 'currency': 'USD'}), 'SOXX')
+        self.assertIsNone(fmp_symbol_for_asset({'symbol': '005930.KS', 'providerSymbol': '005930.KS', 'currency': 'KRW'}))
+
+    def test_price_loader_falls_back_to_fmp_when_yahoo_fails(self):
+        asset = {'symbol': 'MU', 'providerSymbol': 'MU', 'currency': 'USD'}
+        original_yahoo = asset_model_module.fetch_yahoo_daily_prices
+        original_fmp = asset_model_module.fetch_fmp_daily_prices
+        original_key = os.environ.get(asset_model_module.FMP_API_KEY_ENV)
+        try:
+            os.environ[asset_model_module.FMP_API_KEY_ENV] = 'test-key'
+
+            def fail_yahoo(symbol):
+                raise RuntimeError(f'{symbol} unavailable')
+
+            def fake_fmp(symbol):
+                self.assertEqual(symbol, 'MU')
+                return price_rows(40)
+
+            asset_model_module.fetch_yahoo_daily_prices = fail_yahoo
+            asset_model_module.fetch_fmp_daily_prices = fake_fmp
+            rows, status = fetch_or_load_prices(asset, [])
+            self.assertTrue(rows)
+            self.assertEqual(status['source'], 'fmp_historical_eod')
+            self.assertTrue(status['fallbackUsed'])
+            self.assertEqual(status['providerAttempts'][0]['status'], 'error')
+            self.assertEqual(status['providerAttempts'][-1]['provider'], 'fmp_historical_eod')
+        finally:
+            asset_model_module.fetch_yahoo_daily_prices = original_yahoo
+            asset_model_module.fetch_fmp_daily_prices = original_fmp
+            if original_key is None:
+                os.environ.pop(asset_model_module.FMP_API_KEY_ENV, None)
+            else:
+                os.environ[asset_model_module.FMP_API_KEY_ENV] = original_key
 
 
 if __name__ == '__main__':

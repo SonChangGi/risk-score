@@ -2,10 +2,45 @@
   "schemaVersion": 1,
   "contract": "risk-score-data-status",
   "projectId": "risk-score",
-  "generatedAt": "2026-06-30T04:32:48Z",
+  "generatedAt": "2026-06-30T05:05:34Z",
   "status": "warning",
   "requiredUniverseCount": 14,
   "availableAssetCount": 14,
+  "qualityCounts": {
+    "ok": 1,
+    "warning": 13
+  },
+  "providerPolicy": {
+    "browserLiveFetch": false,
+    "priceProviderPriority": [
+      "manual_csv_override",
+      "yahoo_chart_primary",
+      "fmp_historical_eod_fallback_if_FMP_API_KEY"
+    ],
+    "contextProviderPriority": [
+      "FRED CSV for SOX/VIX/VXN",
+      "Yahoo chart for optional KOSPI/USDKRW"
+    ],
+    "manualFallbackPath": "data/risk-score/manual_prices/{symbol}.csv",
+    "apiKeyFallbacks": [
+      {
+        "provider": "Financial Modeling Prep",
+        "env": "FMP_API_KEY",
+        "endpoint": "stable/historical-price-eod/full"
+      }
+    ],
+    "disabledCandidates": [
+      {
+        "provider": "Stooq CSV",
+        "reason": "Observed JavaScript/browser challenge from this runtime; not used as an automated fallback."
+      }
+    ],
+    "notes": [
+      "Generated JSON is the browser contract; provider access happens only in the update script.",
+      "FMP fallback is optional and activates only when FMP_API_KEY is available.",
+      "Manual CSV overrides are intended for provider outages, short-history corrections, or audited institutional exports."
+    ]
+  },
   "sourceStatus": {
     "context": {
       "sox": {
@@ -47,6 +82,16 @@
         "source": "yahoo_chart",
         "providerSymbol": "MU",
         "rowCount": 5657,
+        "fallbackUsed": false,
+        "providerAttempts": [
+          {
+            "provider": "yahoo_chart",
+            "status": "ok",
+            "providerSymbol": "MU",
+            "rowCount": 5657
+          }
+        ],
+        "adjustmentPolicy": "Yahoo adjusted close preferred via includeAdjustedClose=true",
         "computedRowCount": 5657
       },
       "INTC": {
@@ -54,6 +99,16 @@
         "source": "yahoo_chart",
         "providerSymbol": "INTC",
         "rowCount": 5657,
+        "fallbackUsed": false,
+        "providerAttempts": [
+          {
+            "provider": "yahoo_chart",
+            "status": "ok",
+            "providerSymbol": "INTC",
+            "rowCount": 5657
+          }
+        ],
+        "adjustmentPolicy": "Yahoo adjusted close preferred via includeAdjustedClose=true",
         "computedRowCount": 5657
       },
       "MRVL": {
@@ -61,6 +116,16 @@
         "source": "yahoo_chart",
         "providerSymbol": "MRVL",
         "rowCount": 5657,
+        "fallbackUsed": false,
+        "providerAttempts": [
+          {
+            "provider": "yahoo_chart",
+            "status": "ok",
+            "providerSymbol": "MRVL",
+            "rowCount": 5657
+          }
+        ],
+        "adjustmentPolicy": "Yahoo adjusted close preferred via includeAdjustedClose=true",
         "computedRowCount": 5657
       },
       "WDC": {
@@ -68,6 +133,16 @@
         "source": "yahoo_chart",
         "providerSymbol": "WDC",
         "rowCount": 5657,
+        "fallbackUsed": false,
+        "providerAttempts": [
+          {
+            "provider": "yahoo_chart",
+            "status": "ok",
+            "providerSymbol": "WDC",
+            "rowCount": 5657
+          }
+        ],
+        "adjustmentPolicy": "Yahoo adjusted close preferred via includeAdjustedClose=true",
         "computedRowCount": 5657
       },
       "SNDK": {
@@ -75,6 +150,16 @@
         "source": "yahoo_chart",
         "providerSymbol": "SNDK",
         "rowCount": 344,
+        "fallbackUsed": false,
+        "providerAttempts": [
+          {
+            "provider": "yahoo_chart",
+            "status": "ok",
+            "providerSymbol": "SNDK",
+            "rowCount": 344
+          }
+        ],
+        "adjustmentPolicy": "Yahoo adjusted close preferred via includeAdjustedClose=true",
         "computedRowCount": 344
       },
       "STX": {
@@ -82,6 +167,16 @@
         "source": "yahoo_chart",
         "providerSymbol": "STX",
         "rowCount": 5657,
+        "fallbackUsed": false,
+        "providerAttempts": [
+          {
+            "provider": "yahoo_chart",
+            "status": "ok",
+            "providerSymbol": "STX",
+            "rowCount": 5657
+          }
+        ],
+        "adjustmentPolicy": "Yahoo adjusted close preferred via includeAdjustedClose=true",
         "computedRowCount": 5657
       },
       "005930.KS": {
@@ -89,6 +184,16 @@
         "source": "yahoo_chart",
         "providerSymbol": "005930.KS",
         "rowCount": 5580,
+        "fallbackUsed": false,
+        "providerAttempts": [
+          {
+            "provider": "yahoo_chart",
+            "status": "ok",
+            "providerSymbol": "005930.KS",
+            "rowCount": 5580
+          }
+        ],
+        "adjustmentPolicy": "Yahoo adjusted close preferred via includeAdjustedClose=true",
         "computedRowCount": 5580
       },
       "000660.KS": {
@@ -96,6 +201,16 @@
         "source": "yahoo_chart",
         "providerSymbol": "000660.KS",
         "rowCount": 5580,
+        "fallbackUsed": false,
+        "providerAttempts": [
+          {
+            "provider": "yahoo_chart",
+            "status": "ok",
+            "providerSymbol": "000660.KS",
+            "rowCount": 5580
+          }
+        ],
+        "adjustmentPolicy": "Yahoo adjusted close preferred via includeAdjustedClose=true",
         "computedRowCount": 5580
       },
       "SOXX": {
@@ -103,6 +218,16 @@
         "source": "yahoo_chart",
         "providerSymbol": "SOXX",
         "rowCount": 5657,
+        "fallbackUsed": false,
+        "providerAttempts": [
+          {
+            "provider": "yahoo_chart",
+            "status": "ok",
+            "providerSymbol": "SOXX",
+            "rowCount": 5657
+          }
+        ],
+        "adjustmentPolicy": "Yahoo adjusted close preferred via includeAdjustedClose=true",
         "computedRowCount": 5657
       },
       "SMH": {
@@ -110,6 +235,16 @@
         "source": "yahoo_chart",
         "providerSymbol": "SMH",
         "rowCount": 5657,
+        "fallbackUsed": false,
+        "providerAttempts": [
+          {
+            "provider": "yahoo_chart",
+            "status": "ok",
+            "providerSymbol": "SMH",
+            "rowCount": 5657
+          }
+        ],
+        "adjustmentPolicy": "Yahoo adjusted close preferred via includeAdjustedClose=true",
         "computedRowCount": 5657
       },
       "XSD": {
@@ -117,6 +252,16 @@
         "source": "yahoo_chart",
         "providerSymbol": "XSD",
         "rowCount": 5130,
+        "fallbackUsed": false,
+        "providerAttempts": [
+          {
+            "provider": "yahoo_chart",
+            "status": "ok",
+            "providerSymbol": "XSD",
+            "rowCount": 5130
+          }
+        ],
+        "adjustmentPolicy": "Yahoo adjusted close preferred via includeAdjustedClose=true",
         "computedRowCount": 5130
       },
       "PSI": {
@@ -124,6 +269,16 @@
         "source": "yahoo_chart",
         "providerSymbol": "PSI",
         "rowCount": 5286,
+        "fallbackUsed": false,
+        "providerAttempts": [
+          {
+            "provider": "yahoo_chart",
+            "status": "ok",
+            "providerSymbol": "PSI",
+            "rowCount": 5286
+          }
+        ],
+        "adjustmentPolicy": "Yahoo adjusted close preferred via includeAdjustedClose=true",
         "computedRowCount": 5286
       },
       "DRAM": {
@@ -131,6 +286,16 @@
         "source": "yahoo_chart",
         "providerSymbol": "DRAM",
         "rowCount": 60,
+        "fallbackUsed": false,
+        "providerAttempts": [
+          {
+            "provider": "yahoo_chart",
+            "status": "ok",
+            "providerSymbol": "DRAM",
+            "rowCount": 60
+          }
+        ],
+        "adjustmentPolicy": "Yahoo adjusted close preferred via includeAdjustedClose=true",
         "computedRowCount": 60
       }
     }

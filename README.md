@@ -11,7 +11,8 @@ SOX Index 단기 고점 위험을 뉴스가 아닌 가격·추세·변동성 기
 - **Benchmark semantics**: ETF의 `officialBenchmark`(발행사/공식 기준)와 이 대시보드의 `analysisBenchmark`(상대강도/섹터 해석 참조)를 분리합니다. SOX는 analysis reference일 수 있지만 모든 ETF의 공식 추종지수라는 의미가 아닙니다.
 - **Confirmation vs Actionable**: `asset_confirmed_risk`(자산 자체 rollover)와 `asset_actionable_signal`(자산 confirmation + sector context)을 분리합니다.
 - **Backtest**: 신호 후 미래 5거래일 absolute downside/strict top과 volatility-adjusted label, daily statistics, 5D cooldown event-level statistics, base-rate lift.
-- **Economic validation**: 개별 자산 primary rule의 event-level volatility-adjusted downside lift가 base rate를 이기지 못하면 confidence를 낮추고 warning을 표시합니다.
+- **Economic validation**: 개별 자산 primary rule의 event-level volatility-adjusted downside lift가 base rate를 이기지 못하면 confidence를 낮추고 warning을 표시합니다. 추가로 validation score, best/weak rules, score-bucket diagnostics, cross-asset validation을 노출해 신호가 실제로 경제적으로 의미 있는지 확인합니다.
+- **Data quality**: manual CSV override, Yahoo chart primary, optional Financial Modeling Prep fallback(`FMP_API_KEY`)의 provider attempts와 latest lag를 JSON/UI에 표시합니다.
 - **Universe matrix**: SOX, MU, INTC, MRVL, WDC, SNDK, STX, 005930.KS, 000660.KS, SOXX, SMH, XSD, PSI, DRAM을 한눈에 비교합니다.
 
 본 페이지는 투자 조언이 아니라 개인 리서치용 risk overlay입니다.
@@ -24,8 +25,10 @@ Required generated-data sources:
 - VIX daily close: FRED `VIXCLS` (`https://fred.stlouisfed.org/graph/fredgraph.csv?id=VIXCLS`)
 - Optional VXN close: FRED `VXNCLS` (`https://fred.stlouisfed.org/graph/fredgraph.csv?id=VXNCLS`)
 - US stock/ETF adjusted close: Yahoo chart endpoint used only by the local update script.
+- Optional authenticated fallback: Financial Modeling Prep historical EOD endpoint, enabled only when `FMP_API_KEY` is set. Yahoo adjusted close remains the no-key primary path; FMP `adjClose` is preferred when available and otherwise carries an adjustment-policy warning.
 - Korean stock adjusted close: Yahoo chart endpoint (`005930.KS`, `000660.KS`) plus `KRW=X` for USD conversion when available; `^KS11` is the local benchmark fallback.
-- Manual fallback: `data/risk-score/manual_prices/{symbol}.csv` or `public/data/risk-score/manual_prices/{symbol}.csv` with `date, open, high, low, close, adj_close, volume`.
+- Manual fallback/override: `data/risk-score/manual_prices/{symbol}.csv` or `public/data/risk-score/manual_prices/{symbol}.csv` with `date, open, high, low, close, adj_close, volume`. Use this for provider outages or audited exports.
+- Stooq CSV is not used as an automated fallback in this runtime because the endpoint returned a JavaScript/browser challenge during verification; it remains a manual-source candidate rather than a production provider.
 
 Optional/source-note only in v1:
 
@@ -106,6 +109,18 @@ PYTHONDONTWRITEBYTECODE=1 python3 -B scripts/verify_quant_dashboard_sync.py
 ```
 
 `npm test` runs syntax checks, static contract checks, and a local nested-route smoke for `/quant-dashboard/risk-score/`, nested assets, and nested JSON.
+
+## Economic validation diagnostics
+
+For non-SOX assets the dashboard reports:
+
+- **Primary event-level rule lift** over the asset's own volatility-adjusted 5D downside base rate.
+- **Validation score (0-100)** from best primary rule lift, event count, and high-risk-vs-normal score-bucket lift. This is diagnostic, not a probability.
+- **Best/weak/validated rules** so SOXX-like ETF differences are visible instead of hidden.
+- **Score-bucket diagnostics** comparing Top Risk >= 4 outcomes with score <= 2 outcomes.
+- **Cross-asset validation** by group to show whether the fixed methodology generalizes across US stocks, Korea stocks, and ETFs.
+
+The model still avoids ticker-specific threshold optimization. Strong validation means the fixed rule set has useful historical downside lift for that asset; weak validation means the score should be used only as a descriptive risk overlay.
 
 ## Model formulas
 
@@ -189,7 +204,7 @@ vol_adj_strict_top = fwd_max_5 <= 0.5 * RV20 * sqrt(5) AND vol_adj_downside
 - Leading score can fire before a top is confirmed.
 - Backtest hit rates describe historical distributions and are not future-performance guarantees.
 - Optional sentiment/fundamental panels are not in v1 main score.
-- Yahoo chart adjusted-close access is no-key and best-effort; manual CSV fallback exists for provider outages.
+- Yahoo chart adjusted-close access is no-key and best-effort; manual CSV override plus optional FMP API-key fallback exist for provider outages, with provider attempts and adjustment policy recorded in JSON.
 - Korean FX mismatch is handled by USDKRW when available; if FX is unavailable, local KOSPI relative strength is shown with warning instead of pretending KRW/SOX comparability.
 - SNDK and DRAM have short standalone histories, so event-level confidence is flagged low until more data accumulates.
 - Public deployment is served from the Quant Dashboard subtree; run the sync command plus `verify_quant_dashboard_sync.py` before publishing to prevent canonical/deploy drift.

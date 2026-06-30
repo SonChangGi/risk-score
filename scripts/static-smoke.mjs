@@ -64,12 +64,14 @@ try {
   if (soxx?.officialBenchmark?.name !== 'NYSE Semiconductor Index') throw new Error('SOXX official benchmark metadata missing or incorrectly labeled');
   if (soxx?.analysisBenchmark?.symbol !== 'SOX') throw new Error('SOXX analysis benchmark reference missing');
   if (!soxx?.economicValidation?.status) throw new Error('SOXX economic validation status missing');
+  if (!Number.isFinite(Number(soxx?.economicValidation?.validationScore))) throw new Error('SOXX validation score missing');
+  if (!soxx?.dataQuality?.level || !Array.isArray(soxx?.dataQuality?.providerAttempts)) throw new Error('SOXX data quality/provider attempts missing');
   if (soxx.economicValidation.status === 'weak' && soxx.confidence?.level === 'high') throw new Error('weak SOXX validation must not have high confidence');
   if (soxx?.current?.date > soxx?.current?.sectorContextAsOf && soxx.current.sectorContextStatus === 'fresh') throw new Error('SOXX stale context mislabeled as fresh');
-  if (!app.includes('Official benchmark') || !app.includes('Economic validation') || !app.includes('not calibrated to SOX probability')) throw new Error('score semantics UI labels missing');
+  if (!app.includes('Official benchmark') || !app.includes('Economic validation') || !app.includes('Best validation rule') || !app.includes('Data quality') || !app.includes('Price provider policy') || !app.includes('not calibrated to SOX probability')) throw new Error('score semantics UI labels missing');
   if (!assetDaily.rowsBySymbol?.MU?.length || !assetDaily.rowsBySymbol?.SOX?.length) throw new Error('asset daily rows missing');
-  if (assetBacktest.primaryLabelMode !== 'volAdjusted' || !assetBacktest.assets?.MU?.periods?.full?.volAdjusted) throw new Error('asset vol-adjusted backtest missing');
-  if (dataStatus.contract !== 'risk-score-data-status' || dataStatus.availableAssetCount < required.length) throw new Error('data status coverage mismatch');
+  if (assetBacktest.primaryLabelMode !== 'volAdjusted' || !assetBacktest.assets?.MU?.periods?.full?.volAdjusted?.scoreBuckets || !assetBacktest.crossAssetValidation?.assetCount) throw new Error('asset vol-adjusted backtest diagnostics missing');
+  if (dataStatus.contract !== 'risk-score-data-status' || dataStatus.availableAssetCount < required.length || !dataStatus.providerPolicy?.priceProviderPriority?.length) throw new Error('data status coverage/provider policy mismatch');
   console.log('PASS static server smoke served multi-asset route, nested assets, JSON contracts, universe, warnings, and backtest payloads');
 } finally {
   await new Promise((resolve) => server.close(resolve));

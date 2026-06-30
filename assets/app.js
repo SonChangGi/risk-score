@@ -163,7 +163,7 @@
         <td>${yesNo(row.sectorContext)} ${badge(row.sectorContextStatus || '-', row.sectorContextStatus === 'fresh' ? 'normal' : 'warning')}</td>
         <td>${yesNo(row.actionable)}</td>
         <td class="text-cell">${escapeHtml(row.relativeStrength || '-')}<small>analysis: ${escapeHtml(row.analysisBenchmark?.symbol || '-')}</small></td>
-        <td>${badge(row.dataStatus || '-', row.dataStatus === 'ok' ? 'normal' : 'warning')} ${badge(row.confidence || '-', row.confidence === 'high' ? 'normal' : row.confidence === 'medium' ? 'watch' : 'warning')} ${row.economicValidationStatus ? badge(row.economicValidationStatus, validationTone(row.economicValidationStatus)) : ''}</td>
+        <td>${badge(row.dataQuality || row.dataStatus || '-', (row.dataQuality || row.dataStatus) === 'ok' ? 'normal' : 'warning')} ${badge(row.confidence || '-', row.confidence === 'high' ? 'normal' : row.confidence === 'medium' ? 'watch' : 'warning')} ${row.economicValidationStatus ? badge(`${row.economicValidationStatus}${finite(row.validationScore) ? ` ${Math.round(row.validationScore)}` : ''}`, validationTone(row.economicValidationStatus)) : ''}<small>${escapeHtml(row.dataProvider || '')}</small></td>
       </tr>
     `).join('');
     $$('#asset-matrix-body .asset-row').forEach((row) => {
@@ -178,6 +178,8 @@
     const isSox = state.selectedSymbol === 'SOX';
     const asset = selectedAssetSummary() || {};
     const validation = asset.economicValidation || {};
+    const quality = asset.dataQuality || {};
+    const bestRule = validation.bestRule || {};
     const official = current.officialBenchmark || asset.officialBenchmark || {};
     const modelDetail = isSox ? 'SOX canonical sector risk model' : 'Experimental asset vol/relative risk ladder';
     const topRiskDetail = isSox
@@ -196,8 +198,9 @@
       ['Actionable signal', current.assetActionableSignal ? 'ON' : 'OFF', 'asset confirmation + sector context', current.assetActionableSignal ? 'confirmed-red' : 'neutral'],
       ['Relative strength', current.relativeStrengthStatus || (isSox ? 'sector baseline' : '-'), current.benchmarkSymbol ? `Analysis reference: ${current.benchmarkSymbol} · benchmark as of ${formatDate(current.benchmarkAsOf)}` : 'SOX baseline', toneForRelative(current.relativeStrengthStatus)],
       ['Official benchmark', official?.name || (isSox ? 'PHLX Semiconductor Sector Index' : current.type === 'ETF' ? 'issuer exposure, not configured' : 'N/A for single stock'), official?.source ? `${official.source}; analysis reference may differ` : 'Not used as an asset-model input', officialTone],
-      ['Model validation', validation.status || (isSox ? 'canonical' : '-'), validation.summary || selectedAssetSummary()?.confidence?.level || 'available', validationTone(validation.status)],
-      ['Data status', selectedAssetSummary()?.dataStatus?.status || 'ok', selectedWarnings().slice(0, 1).join(' ') || selectedAssetSummary()?.confidence?.level || 'available', selectedAssetSummary()?.dataStatus?.status === 'ok' ? 'normal' : 'warning'],
+      ['Model validation', validation.status ? `${validation.status}${finite(validation.validationScore) ? ` · ${Math.round(validation.validationScore)}/100` : ''}` : (isSox ? 'canonical' : '-'), validation.summary || selectedAssetSummary()?.confidence?.level || 'available', validationTone(validation.status)],
+      ['Best validation rule', bestRule.label || (isSox ? 'Canonical SOX backtest' : '-'), finite(bestRule.downsideHitRateLift) ? `event lift ${formatLift(bestRule.downsideHitRateLift)} · events ${formatInteger(bestRule.eventCount)}` : 'Event-level evidence unavailable', validationTone(validation.status)],
+      ['Data quality', quality.level || selectedAssetSummary()?.dataStatus?.status || 'ok', `${quality.source || selectedAssetSummary()?.dataStatus?.source || '-'} · lag ${formatLag(quality.latestLagDays)} · ${quality.fallbackUsed ? 'fallback used' : 'primary path'}`, (quality.level || selectedAssetSummary()?.dataStatus?.status) === 'ok' ? 'normal' : 'warning'],
     ];
     const target = $('#summary-cards');
     if (target) {
@@ -377,8 +380,14 @@
     if (!isSox) {
       const asset = selectedAssetSummary();
       const validation = asset?.economicValidation || {};
+      const buckets = validation.scoreBucketDiagnostics || {};
+      const bestRule = validation.bestRule || {};
+      const cross = state.assetBacktest?.crossAssetValidation || state.assetSummary?.crossAssetValidation || {};
       target.innerHTML = `<article class="notice"><h3>Vol-adjusted label 우선</h3><p>개별 종목/ETF는 고정 -5%와 변동성 조정 label을 함께 제공하지만, 주 평가는 변동성 조정 event-level입니다. SOX는 섹터 분석 기준이지 모든 ETF의 공식 벤치마크가 아닙니다.</p></article>
-      <article class="mini-card"><span>Economic validation</span><strong>${escapeHtml(validation.status || '-')}</strong><small>${escapeHtml(validation.summary || 'validation unavailable')}</small></article>
+      <article class="mini-card"><span>Economic validation</span><strong>${escapeHtml(validation.status || '-')} ${finite(validation.validationScore) ? `${Math.round(validation.validationScore)}/100` : ''}</strong><small>${escapeHtml(validation.summary || 'validation unavailable')}</small></article>
+      <article class="mini-card"><span>Best primary rule</span><strong>${escapeHtml(bestRule.label || '-')}</strong><small>event lift ${formatLift(bestRule.downsideHitRateLift)} · events ${formatInteger(bestRule.eventCount)}</small></article>
+      <article class="mini-card"><span>Score-bucket lift</span><strong>${formatLift(buckets.highVsNormalDownsideLift)}</strong><small>Top risk ≥4 downside frequency vs score ≤2; diagnostic only</small></article>
+      <article class="mini-card"><span>Cross-asset validation</span><strong>${formatInteger(cross.statusCounts?.strong || 0)} strong · ${formatInteger(cross.statusCounts?.validated || 0)} validated</strong><small>${escapeHtml(cross.summary || 'cross-asset diagnostics unavailable')}</small></article>
       ${(asset?.warnings || []).slice(0, 4).map((item) => `<article class="mini-card"><span>Data warning</span><strong>주의</strong><small>${escapeHtml(item)}</small></article>`).join('')}`;
       return;
     }
@@ -418,9 +427,12 @@
     const target = $('#source-notes');
     if (!target || !summary) return;
     const optional = summary.riskScore?.optionalSources || [];
+    const providerPolicy = state.assetSummary?.methodology?.dataProviderPolicy || state.dataStatus?.providerPolicy || {};
     const limitations = [
       ...(summary.limitations || []),
       '개별 종목/ETF score는 volatility-adjusted momentum/label과 relative strength를 사용하며, SOX 원본 threshold를 그대로 최적화하지 않습니다.',
+      'Economic validation은 event-level lift, score-bucket diagnostics, cross-asset evidence를 보고하지만 티커별 threshold를 조정하지 않습니다.',
+      '개별 가격 데이터는 update script에서 manual CSV override, Yahoo chart primary, FMP API-key fallback 순서로 처리하며 browser runtime에서는 live finance fetch를 하지 않습니다.',
       'SOX는 개별 자산의 sector context/analysis reference이며, ETF의 official benchmark와 다를 수 있습니다.',
       'Top Risk Score는 0~5 regime ladder이며 SOX와 개별 종목/ETF 사이에 직접 비교 가능한 확률 점수가 아닙니다.',
       'Sector context date가 asset date보다 오래되면 stale로 표시하고 actionable 해석을 낮춰 봅니다.',
@@ -435,6 +447,7 @@
     target.innerHTML = `
       <article class="notice"><h3>Limitations</h3><ul>${limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></article>
       ${benchmarks}
+      <article class="source-item"><strong>Price provider policy</strong><span>${escapeHtml((providerPolicy.priceProviderPriority || []).join(' → ') || 'generated JSON only')}</span><p>${escapeHtml((providerPolicy.notes || []).join(' '))}</p></article>
       ${optional.map((source) => `<article class="source-item"><strong>${escapeHtml(source.name)}</strong><span>${escapeHtml(source.status)}</span><p>${escapeHtml(source.note || '')}</p>${source.url ? `<a href="${escapeAttribute(source.url)}">source</a>` : ''}</article>`).join('')}
     `;
   }
@@ -537,7 +550,7 @@
 
   function validationTone(value) {
     const text = String(value || '').toLowerCase();
-    if (text === 'validated' || text === 'canonical') return 'normal';
+    if (text === 'strong' || text === 'validated' || text === 'canonical') return 'normal';
     if (text === 'mixed' || text === 'insufficient') return 'watch';
     if (text === 'weak') return 'warning';
     return 'neutral';
