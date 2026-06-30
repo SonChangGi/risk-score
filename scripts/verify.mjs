@@ -26,11 +26,14 @@ assert(contains(files.html, 'Back to Quant Dashboard'), 'back link exists');
 assert(contains(files.html, 'SOX & Asset Top Risk Score'), 'multi-asset title exists');
 assert(contains(files.html, '뉴스가 아니라'), 'no-news positioning exists');
 assert(contains(files.html, 'asset-select') && contains(files.html, 'asset-matrix-body'), 'asset selector and matrix exist');
+assert(contains(files.html, 'analysis-date-input') && contains(files.html, 'latest-date-button') && contains(files.html, '선택 날짜'), 'analysis date selector UI exists');
 assert(contains(files.html, 'relative-chart') && contains(files.html, 'Vol-adjusted'), 'relative chart and label toggle exist');
 assert(contains(files.app, "DATA_BASE = 'data/risk-score/'"), 'relative data base used');
 assert(!contains(files.app, 'fred.stlouisfed.org') && !contains(files.app, 'query1.finance.yahoo'), 'browser app has no live finance endpoints');
 assert(contains(files.app, 'asset_risk_summary.json') && contains(files.app, 'asset_risk_backtest.json'), 'asset JSON files loaded by UI');
 assert(contains(files.app, 'renderRiskMatrix') && contains(files.app, 'selectAsset'), 'asset matrix and selector renderer exist');
+assert(contains(files.app, 'resolveAnalysisDate') && contains(files.app, 'selectAnalysisDate') && contains(files.app, 'syncUrlState'), 'analysis date URL/state helpers exist');
+assert(contains(files.app, 'Nearest previous scored day') && contains(files.app, 'selectedChartRows') && contains(files.app, 'Selected-date outcome'), 'selected date drives as-of charts and outcome panel');
 assert(contains(files.app, 'assetActionableSignal') && contains(files.app, 'sectorContextActive'), 'confirmed risk and actionable signal separated');
 assert(contains(files.app, 'sectorContextAsOf') && contains(files.app, 'sectorContextStatus') && contains(files.app, 'sectorContextLagDays'), 'UI surfaces sector context date/status/lag');
 assert(contains(files.app, 'SOXQ proxy') && contains(files.app, 'Benchmark overlay') && contains(files.app, 'YTD validation'), 'UI surfaces SOXQ proxy and YTD diagnostics');
@@ -40,7 +43,7 @@ assert(contains(files.app, 'Best validation rule') && contains(files.app, 'Score
 assert(contains(files.app, 'Data quality') && contains(files.app, 'Price provider policy'), 'UI surfaces data quality/provider policy');
 assert(contains(files.css, '--danger') && contains(files.css, '--warning') && contains(files.css, '--success'), 'risk color tokens exist');
 assert(contains(files.css, '@media (max-width: 760px)'), 'mobile responsive CSS exists');
-assert(contains(files.css, '.asset-picker') && contains(files.css, '.asset-row.selected'), 'asset selector/matrix styles exist');
+assert(contains(files.css, '.asset-picker') && contains(files.css, '.asset-row.selected') && contains(files.css, '.analysis-date-controls'), 'asset/date selector and matrix styles exist');
 
 for (const fn of ['fetch_fred_series', 'compute_indicators', 'compute_oh_score', 'compute_rf_score', 'compute_confirmation', 'compute_forward_labels', 'decluster_signals', 'compute_backtest_stats', 'export_json_outputs']) {
   assert(contains(files.model, `def ${fn}`), `python function exists: ${fn}`);

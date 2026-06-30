@@ -22,6 +22,10 @@
     assetBacktest: null,
     dataStatus: null,
     selectedSymbol: 'SOX',
+    requestedDate: null,
+    resolvedDate: null,
+    datePinned: false,
+    dateResolution: null,
     mode: 'event',
     period: 'full',
     labelMode: 'volAdjusted',
@@ -60,6 +64,14 @@
     if (assetSelect) {
       assetSelect.addEventListener('change', () => selectAsset(assetSelect.value));
     }
+    const analysisDate = $('#analysis-date-input');
+    if (analysisDate) {
+      analysisDate.addEventListener('change', () => selectAnalysisDate(analysisDate.value));
+    }
+    const latestButton = $('#latest-date-button');
+    if (latestButton) {
+      latestButton.addEventListener('click', () => selectLatestAnalysisDate());
+    }
   }
 
   async function loadData() {
@@ -76,6 +88,7 @@
       ]);
       Object.assign(state, { summary, backtest, assetUniverse, assetSummary, assetDaily, assetBacktest, dataStatus });
       state.selectedSymbol = assetSummary.defaultSymbol || 'SOX';
+      initializeSelectionFromUrl();
       renderAll();
     } catch (error) {
       setStatus('error', `데이터 로드 실패: ${error.message}`);
@@ -89,24 +102,48 @@
     return response.json();
   }
 
-  function selectAsset(symbol) {
-    if (!symbol || symbol === state.selectedSymbol) return;
+  function selectAsset(symbol, options = {}) {
+    if (!symbol || !hasAsset(symbol)) return;
+    const changed = symbol !== state.selectedSymbol;
     state.selectedSymbol = symbol;
     state.period = 'full';
+    if (!state.datePinned) state.requestedDate = latestScoredDate(symbol);
     renderAll();
-    const section = $('#summary');
-    if (section) section.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    syncUrlState();
+    if (changed && options.scroll !== false) {
+      const section = $('#summary');
+      if (section) section.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+  }
+
+  function selectAnalysisDate(value) {
+    const sanitized = sanitizeDate(value);
+    if (!sanitized) return;
+    state.requestedDate = sanitized;
+    state.datePinned = true;
+    renderAll();
+    syncUrlState();
+  }
+
+  function selectLatestAnalysisDate() {
+    state.datePinned = false;
+    state.requestedDate = latestScoredDate(state.selectedSymbol);
+    renderAll();
+    syncUrlState();
   }
 
   function renderAll() {
+    updateDateResolution();
     const current = selectedCurrent();
+    const resolution = state.dateResolution || {};
     const contextPart = current.sectorContextStatus ? ` · sector context ${current.sectorContextStatus}${current.sectorContextAsOf ? ` as of ${formatDate(current.sectorContextAsOf)}` : ''}` : '';
-    setStatus(current.actionLevel || 'ok', `Selected ${state.selectedSymbol} · score date ${formatDate(current.latestScoredDate || current.date || state.summary?.dataAsOf)}${contextPart} · generated ${formatDateTime(state.summary?.generatedAt)}`);
+    const datePart = `requested ${formatDate(resolution.requestedDate)} → as-of ${formatDate(resolution.resolvedDate)}`;
+    setStatus(current.actionLevel || 'ok', `Selected ${state.selectedSymbol} · ${datePart} · ${resolution.label || 'latest scored day'}${contextPart} · generated ${formatDateTime(state.summary?.generatedAt)}`);
     renderAssetSelector();
     renderRiskMatrix();
     renderSummary(current);
     renderFactors(selectedFactors());
-    renderCharts(selectedRows());
+    renderCharts(selectedChartRows());
     setupBacktestPeriods();
     renderBacktest();
     renderHistory(selectedHistory());
@@ -139,12 +176,24 @@
       const groups = groupAssets(state.assetUniverse.assets);
       chips.innerHTML = Object.entries(groups).map(([group, assets]) => `<span class="status-chip neutral">${escapeHtml(group)} ${assets.length}</span>`).join('');
     }
+    const input = $('#analysis-date-input');
+    const resolution = state.dateResolution || updateDateResolution();
+    if (input) {
+      const dates = scoredRowsForSymbol(state.selectedSymbol).map((row) => row.date);
+      input.min = dates[0] || '';
+      input.max = dates[dates.length - 1] || '';
+      input.value = resolution.requestedDate || resolution.resolvedDate || dates[dates.length - 1] || '';
+    }
+    const note = $('#analysis-date-note');
+    if (note) {
+      note.textContent = resolution.message || '최신 scored trading day를 기준으로 표시합니다.';
+    }
   }
 
   function renderRiskMatrix() {
     const target = $('#asset-matrix-body');
     if (!target) return;
-    const rows = state.assetSummary?.matrix || [];
+    const rows = matrixRowsForDate();
     if (!rows.length) {
       target.innerHTML = '<tr><td colspan="13">Asset matrix unavailable.</td></tr>';
       return;
@@ -153,7 +202,7 @@
       <tr class="asset-row ${row.symbol === state.selectedSymbol ? 'selected' : ''}" data-symbol="${escapeAttribute(row.symbol)}" tabindex="0">
         <td class="text-cell"><strong>${escapeHtml(row.symbol)}</strong><small>${escapeHtml(row.name || '')}</small></td>
         <td>${escapeHtml(row.type || '-')}</td>
-        <td>${formatPrice(row.latest)} ${escapeHtml(row.scoreCurrency || '')}</td>
+        <td class="text-cell">${formatPrice(row.latest)} ${escapeHtml(row.scoreCurrency || '')}<small>${escapeHtml(row.dateLabel || formatDate(row.date))}</small></td>
         <td>${formatPercent(row.oneDayReturn, 2)}</td>
         <td>${scoreText(row.ohScore)}</td>
         <td>${scoreText(row.rfScore)}</td>
@@ -185,13 +234,15 @@
     const benchmarkProxy = current.benchmarkProxyRisk || {};
     const ytd = validation.ytdDiagnostics || {};
     const ytdBest = ytd.bestRule || {};
+    const resolution = state.dateResolution || {};
     const modelDetail = isSox ? 'SOX canonical sector risk model' : 'Experimental asset vol/relative risk ladder';
     const topRiskDetail = isSox
       ? `Canonical sector regime: ${current.regime || '-'}`
       : `Regime ladder only; not calibrated to SOX probability (${current.regime || '-'})`;
     const officialTone = official?.name ? 'neutral' : current.type === 'ETF' ? 'warning' : 'neutral';
     const cards = [
-      [`${state.selectedSymbol} latest`, formatPrice(current.close), `${formatDate(current.date)} · ${current.scoreCurrency || 'USD'}`, 'neutral'],
+      ['Analysis date', formatDate(current.date || resolution.resolvedDate), resolution.message || 'Latest scored trading day', resolution.status === 'exact' || resolution.status === 'latest' ? 'normal' : 'watch'],
+      [`${state.selectedSymbol} close`, formatPrice(current.close), `${formatDate(current.date)} · ${current.scoreCurrency || 'USD'}`, 'neutral'],
       ['Score model', isSox ? 'SOX canonical' : 'Asset experimental', current.scoreModelLabel || modelDetail, isSox ? 'normal' : 'warning'],
       ['1D return', formatPercent(current.oneDayReturn, 2), 'Daily adjusted close 기준', toneForReturn(current.oneDayReturn)],
       ['OH Score', scoreText(current.ohScore), isSox ? '기존 SOX 과열형 top model' : '자산 변동성 조정 OH model', scoreTone(current.ohScore)],
@@ -225,7 +276,8 @@
       const warning = selectedWarnings().length ? `<p class="warning-text">${escapeHtml(selectedWarnings()[0])}</p>` : '';
       const caveat = !isSox ? `<p class="muted-text">자산 점수는 SOX canonical score와 같은 확률 척도가 아니며, 변동성/상대강도 기반 risk overlay입니다.</p>` : '';
       const proxyNote = benchmarkProxy.enabled ? `<p class="muted-text">Benchmark overlay: local ${scoreText(benchmarkProxy.localAssetTopRiskScore)} vs SOXQ proxy ${scoreText(benchmarkProxy.soxqProxyTopRiskScore)}. SOX index가 지연되면 SOXQ proxy를 우선 확인합니다.</p>` : '';
-      action.innerHTML = `<span>${escapeHtml(current.actionLabel || 'Unknown')}</span><strong>${escapeHtml(current.regime || '-')}</strong><p>${escapeHtml(current.actionText || '데이터를 확인할 수 없습니다.')}</p>${caveat}${proxyNote}${warning}`;
+      const asOfNote = `<p class="muted-text">As-of ${escapeHtml(formatDate(current.date || state.resolvedDate))}: ${escapeHtml(state.dateResolution?.message || '선택 기준일 분석')}</p>`;
+      action.innerHTML = `<span>${escapeHtml(current.actionLabel || 'Unknown')}</span><strong>${escapeHtml(current.regime || '-')}</strong><p>${escapeHtml(current.actionText || '데이터를 확인할 수 없습니다.')}</p>${asOfNote}${caveat}${proxyNote}${warning}`;
     }
   }
 
@@ -255,18 +307,18 @@
       { key: 'close', label: `${symbol} Close`, color: '#7dd3fc' },
       { key: 'ma20', label: 'MA20', color: '#c4b5fd' },
       { key: 'ma50', label: 'MA50', color: '#86efac' },
-    ], markerRows(scored), { valueFormatter: formatPrice, yLabel: symbol });
+    ], markerRows(scored, 'price'), { valueFormatter: formatPrice, yLabel: symbol });
     renderLineChart('#score-chart', scored, [
       { key: 'oh_score', label: 'OH', color: '#fbbf24' },
       { key: 'rf_score', label: 'RF', color: '#fb7185' },
       { key: 'top_risk_score', label: 'Top', color: '#f4f4f5' },
       { key: 'sector_proxy_top_risk_score', label: 'SOXQ proxy', color: '#38bdf8' },
-    ], markerRows(scored), { minY: 0, maxY: 5, valueFormatter: (v) => `${v}/5`, yLabel: 'Score' });
+    ], markerRows(scored, 'score'), { minY: 0, maxY: 5, valueFormatter: (v) => `${v}/5`, yLabel: 'Score' });
     renderLineChart('#relative-chart', scored, [
       { key: 'relative_strength', label: 'Relative strength', color: '#7dd3fc' },
       { key: 'rs_ma20', label: 'RS MA20', color: '#c4b5fd' },
       { key: 'rel_z20', label: 'RelZ20', color: '#fbbf24', axisHint: 'z' },
-    ], scored.filter((row) => row.rel_z20 >= 1 || row.rel_z20 <= -1).map((row) => ({ row, tone: row.rel_z20 >= 1 ? 'watch' : 'high-risk', label: `RelZ20 ${formatNumber(row.rel_z20)}` })), { valueFormatter: formatNumber, yLabel: 'RS' });
+    ], relativeMarkerRows(scored), { valueFormatter: formatNumber, yLabel: 'RS' });
     const volSeries = [
       { key: 'vix_close', label: 'VIX', color: '#fb7185' },
       { key: 'vix_ma5', label: 'VIX MA5', color: '#fbbf24' },
@@ -276,20 +328,40 @@
       volSeries.push({ key: 'vxn_close', label: 'VXN', color: '#c4b5fd' });
       volSeries.push({ key: 'vxn_ma5', label: 'VXN MA5', color: '#86efac' });
     }
-    renderLineChart('#vix-chart', scored, volSeries, scored.filter((row) => row.vix_rising || row.vxn_rising).map((row) => ({ row, tone: row.vxn_rising ? 'high-risk' : 'confirmed-red', label: row.vxn_rising ? 'VXN rising' : 'VIX rising' })), { valueFormatter: formatNumber, yLabel: 'Vol' });
+    renderLineChart('#vix-chart', scored, volSeries, volMarkerRows(scored), { valueFormatter: formatNumber, yLabel: 'Vol' });
   }
 
-  function markerRows(rows) {
+  function markerRows(rows, chartType = 'price') {
     return rows.flatMap((row) => {
       const markers = [];
-      if (row.oh_score >= 4) markers.push({ row, tone: 'watch', label: `OH ${row.oh_score}/5` });
-      if (row.rf_score >= 4) markers.push({ row, tone: 'high-risk', label: `RF ${row.rf_score}/5` });
-      if (row.top_risk_score === 5) markers.push({ row, tone: 'red-zone', label: 'Red Zone' });
-      if (row.sector_proxy_context_active) markers.push({ row, tone: 'watch', label: `SOXQ proxy ${row.sector_proxy_top_risk_score}/5` });
-      if (row.asset_confirmed_risk || row.confirmed_top_risk) markers.push({ row, tone: 'confirmed-red', label: 'Confirmed' });
-      if (row.asset_actionable_signal) markers.push({ row, tone: 'confirmed-red', label: 'Actionable' });
+      const valueKey = chartType === 'score' ? 'top_risk_score' : 'close';
+      if (row.oh_score >= 4) markers.push({ row, tone: 'watch', label: `OH ${row.oh_score}/5`, valueKey });
+      if (row.rf_score >= 4) markers.push({ row, tone: 'high-risk', label: `RF ${row.rf_score}/5`, valueKey });
+      if (row.top_risk_score === 5) markers.push({ row, tone: 'red-zone', label: 'Red Zone', valueKey });
+      if (row.sector_proxy_context_active) markers.push({ row, tone: 'watch', label: `SOXQ proxy ${row.sector_proxy_top_risk_score}/5`, valueKey });
+      if (row.asset_confirmed_risk || row.confirmed_top_risk) markers.push({ row, tone: 'confirmed-red', label: 'Confirmed', valueKey });
+      if (row.asset_actionable_signal) markers.push({ row, tone: 'confirmed-red', label: 'Actionable', valueKey });
+      if (row.date === state.resolvedDate) markers.push({ row, tone: 'selected-date', label: `Selected date ${formatDate(row.date)}`, valueKey });
       return markers;
     });
+  }
+
+  function relativeMarkerRows(rows) {
+    const markers = rows
+      .filter((row) => row.rel_z20 >= 1 || row.rel_z20 <= -1)
+      .map((row) => ({ row, tone: row.rel_z20 >= 1 ? 'watch' : 'high-risk', label: `RelZ20 ${formatNumber(row.rel_z20)}`, valueKey: 'relative_strength' }));
+    const selected = rows.find((row) => row.date === state.resolvedDate);
+    if (selected) markers.push({ row: selected, tone: 'selected-date', label: `Selected date ${formatDate(selected.date)}`, valueKey: finite(selected.relative_strength) ? 'relative_strength' : 'rel_z20' });
+    return markers;
+  }
+
+  function volMarkerRows(rows) {
+    const markers = rows
+      .filter((row) => row.vix_rising || row.vxn_rising)
+      .map((row) => ({ row, tone: row.vxn_rising ? 'high-risk' : 'confirmed-red', label: row.vxn_rising ? 'VXN rising' : 'VIX rising', valueKey: finite(row.vix_close) ? 'vix_close' : 'vxn_close' }));
+    const selected = rows.find((row) => row.date === state.resolvedDate);
+    if (selected) markers.push({ row: selected, tone: 'selected-date', label: `Selected date ${formatDate(selected.date)}`, valueKey: finite(selected.vix_close) ? 'vix_close' : 'vxn_close' });
+    return markers;
   }
 
   function renderLineChart(selector, rows, series, markers, options = {}) {
@@ -320,12 +392,11 @@
     const markerSvg = markers.map((marker) => {
       const index = rows.indexOf(marker.row);
       if (index < 0) return '';
-      let value = marker.row.close;
-      if (selector === '#score-chart') value = marker.row.top_risk_score;
-      if (selector === '#vix-chart') value = marker.row.vix_close ?? marker.row.vxn_close;
-      if (selector === '#relative-chart') value = marker.row.relative_strength ?? marker.row.rel_z20;
+      let value = marker.value ?? (marker.valueKey ? marker.row[marker.valueKey] : undefined);
+      if (!finite(value)) value = marker.row[availableSeries[0]?.key] ?? marker.row.close;
       if (!finite(value)) return '';
-      return `<circle cx="${x(index).toFixed(1)}" cy="${y(value).toFixed(1)}" r="4.8" class="marker ${classForLevel(marker.tone)}"><title>${escapeHtml(`${marker.row.date}: ${marker.label}`)}</title></circle>`;
+      const markerClass = marker.tone === 'selected-date' ? 'selected-date' : classForLevel(marker.tone);
+      return `<circle cx="${x(index).toFixed(1)}" cy="${y(value).toFixed(1)}" r="${marker.tone === 'selected-date' ? '6.2' : '4.8'}" class="marker ${markerClass}"><title>${escapeHtml(`${marker.row.date}: ${marker.label}`)}</title></circle>`;
     }).join('');
     const legend = availableSeries.map((item, index) => `<g transform="translate(${margin.left + (index % 4) * 170},${height - 14 - Math.floor(index / 4) * 18})"><line x1="0" x2="22" y1="0" y2="0" stroke="${item.color}" stroke-width="3"/><text x="30" y="4">${escapeHtml(item.label)}</text></g>`).join('');
     const firstDate = rows[0]?.date || '';
@@ -360,7 +431,7 @@
     const base = statsRoot?.baseRates || {};
     const rules = isSox ? state.backtest?.rules || [] : state.assetBacktest?.rules || [];
     const caption = $('#backtest-caption');
-    if (caption) caption.textContent = `${state.selectedSymbol} · ${period?.label || state.period} · ${mode === 'event' ? 'de-clustered event-level' : 'daily signal'} · ${isSox ? 'absolute -5% label' : labelMode} · base downside ${formatPercent(base.downsideHitRate, 1)}`;
+    if (caption) caption.textContent = `${state.selectedSymbol} · selected ${formatDate(state.resolvedDate)} · ${period?.label || state.period} · ${mode === 'event' ? 'de-clustered event-level' : 'daily signal'} · ${isSox ? 'absolute -5% label' : labelMode} · base downside ${formatPercent(base.downsideHitRate, 1)}`;
     $$('.label-toggle').forEach((button) => { button.disabled = isSox; button.classList.toggle('disabled', isSox); });
     if (!statsRoot?.ruleStats) {
       target.innerHTML = '<tr><td colspan="9">Backtest data unavailable.</td></tr>';
@@ -387,6 +458,7 @@
   function renderSensitivity(isSox) {
     const target = $('#sensitivity-panel');
     if (!target) return;
+    const outcomeCard = selectedOutcomeCard(isSox);
     if (!isSox) {
       const asset = selectedAssetSummary();
       const validation = asset?.economicValidation || {};
@@ -395,7 +467,7 @@
       const ytd = validation.ytdDiagnostics || {};
       const ytdBest = ytd.bestRule || {};
       const cross = state.assetBacktest?.crossAssetValidation || state.assetSummary?.crossAssetValidation || {};
-      target.innerHTML = `<article class="notice"><h3>Vol-adjusted label 우선</h3><p>개별 종목/ETF는 고정 -5%와 변동성 조정 label을 함께 제공하지만, 주 평가는 변동성 조정 event-level입니다. SOX가 지연되면 SOXQ same-day proxy context rule을 함께 봅니다.</p></article>
+      target.innerHTML = `${outcomeCard}<article class="notice"><h3>Vol-adjusted label 우선</h3><p>개별 종목/ETF는 고정 -5%와 변동성 조정 label을 함께 제공하지만, 주 평가는 변동성 조정 event-level입니다. SOX가 지연되면 SOXQ same-day proxy context rule을 함께 봅니다.</p></article>
       <article class="mini-card"><span>Economic validation</span><strong>${escapeHtml(validation.status || '-')} ${finite(validation.validationScore) ? `${Math.round(validation.validationScore)}/100` : ''}</strong><small>${escapeHtml(validation.summary || 'validation unavailable')}</small></article>
       <article class="mini-card"><span>Best primary rule</span><strong>${escapeHtml(bestRule.label || '-')}</strong><small>event lift ${formatLift(bestRule.downsideHitRateLift)} · events ${formatInteger(bestRule.eventCount)}</small></article>
       <article class="mini-card"><span>YTD best rule</span><strong>${escapeHtml(ytdBest.label || '-')}</strong><small>YTD lift ${formatLift(ytdBest.downsideHitRateLift)} · events ${formatInteger(ytdBest.eventCount)} · ${escapeHtml(ytd.status || '-')}</small></article>
@@ -406,7 +478,7 @@
       return;
     }
     const items = (state.backtest?.thresholdSensitivity || []).filter((_, index) => index < 8);
-    target.innerHTML = `<article class="notice"><h3>Threshold sensitivity는 보고용입니다</h3><p>아래 값은 default threshold를 자동 변경하지 않습니다. YTD 결과에 맞춘 threshold tuning은 금지됩니다.</p></article>` + items.map((item) => `
+    target.innerHTML = `${outcomeCard}<article class="notice"><h3>Threshold sensitivity는 보고용입니다</h3><p>아래 값은 default threshold를 자동 변경하지 않습니다. YTD 결과에 맞춘 threshold tuning은 금지됩니다.</p></article>` + items.map((item) => `
       <article class="mini-card"><span>${escapeHtml(item.field)} ${escapeHtml(String(item.threshold))}</span><strong>${formatPercent(item.downsideHitRate, 1)}</strong><small>signals ${formatInteger(item.signalCount)} · lift ${formatLift(item.downsideLiftRatio)}</small></article>
     `).join('');
   }
@@ -469,15 +541,17 @@
 
   function updateSelectedCopy(current) {
     const summaryTitle = $('#summary-title');
-    if (summaryTitle) summaryTitle.textContent = `${state.selectedSymbol} 현재 고점 리스크`;
+    if (summaryTitle) summaryTitle.textContent = `${state.selectedSymbol} ${formatDate(state.resolvedDate || current.date)} 기준 고점 리스크`;
     const chartTitle = $('#charts-title');
-    if (chartTitle) chartTitle.textContent = `${state.selectedSymbol} 가격·점수·상대강도·VIX/VXN`;
+    if (chartTitle) chartTitle.textContent = `${state.selectedSymbol} as-of ${formatDate(state.resolvedDate || current.date)} 가격·점수·상대강도·VIX/VXN`;
     const assetName = $('#selected-asset-name');
     if (assetName) assetName.textContent = `${state.selectedSymbol} · ${current.name || selectedAssetSummary()?.name || ''}`;
   }
 
   function selectedCurrent() {
     const asset = selectedAssetSummary();
+    const row = selectedResolvedRow();
+    if (row) return currentFromRow(row, asset);
     if (asset?.current) return asset.current;
     return state.summary?.riskScore?.current || {};
   }
@@ -487,18 +561,31 @@
   }
 
   function selectedFactors() {
+    const row = selectedResolvedRow();
+    if (row) return buildFactorsForRow(row, selectedRows());
     if (state.selectedSymbol === 'SOX') return state.summary?.riskScore?.factorBreakdown || [];
     return selectedAssetSummary()?.factorBreakdown || [];
   }
 
   function selectedRows() {
-    if (state.selectedSymbol === 'SOX') return state.assetDaily?.rowsBySymbol?.SOX || [];
     return state.assetDaily?.rowsBySymbol?.[state.selectedSymbol] || [];
   }
 
+  function selectedChartRows() {
+    const resolved = state.resolvedDate || latestScoredDate(state.selectedSymbol);
+    return selectedRows()
+      .filter((row) => finite(row.close) && (!resolved || row.date <= resolved))
+      .slice(-520);
+  }
+
   function selectedHistory() {
-    if (state.selectedSymbol === 'SOX') return state.summary?.riskScore?.recentSignals || [];
-    return selectedAssetSummary()?.recentSignals || [];
+    const resolved = state.resolvedDate || latestScoredDate(state.selectedSymbol);
+    const rows = selectedRows().filter((row) => !resolved || row.date <= resolved);
+    const signalRows = rows.filter((row, index) => {
+      if (!finite(row.top_risk_score)) return false;
+      return row.top_risk_score >= 4 || row.asset_confirmed_risk || row.confirmed_top_risk || row.asset_actionable_signal || row.signal_asset_top_ge_4 || row.signal_asset_confirmed_risk || row.signal_asset_actionable_signal || (index === rows.length - 1);
+    });
+    return signalRows.slice(-80).reverse().map((row) => historyFromRow(row, rows));
   }
 
   function selectedWarnings() {
@@ -513,6 +600,420 @@
   function selectedBacktestPeriods() {
     if (state.selectedSymbol === 'SOX') return state.backtest?.periods || {};
     return state.assetBacktest?.periods || selectedBacktest()?.periods || {};
+  }
+
+  function initializeSelectionFromUrl() {
+    if (typeof window === 'undefined') {
+      state.requestedDate = latestScoredDate(state.selectedSymbol);
+      updateDateResolution();
+      return;
+    }
+    const params = new URL(window.location.href).searchParams;
+    const symbol = params.get('symbol') || params.get('asset');
+    if (symbol && hasAsset(symbol)) state.selectedSymbol = symbol;
+    const date = sanitizeDate(params.get('date') || params.get('asOf') || params.get('analysisDate'));
+    state.datePinned = Boolean(date);
+    state.requestedDate = date || latestScoredDate(state.selectedSymbol);
+    updateDateResolution();
+  }
+
+  function syncUrlState() {
+    if (typeof window === 'undefined' || !window.history) return;
+    const url = new URL(window.location.href);
+    url.searchParams.set('symbol', state.selectedSymbol);
+    if (state.datePinned && state.requestedDate) url.searchParams.set('date', state.requestedDate);
+    else url.searchParams.delete('date');
+    window.history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+  }
+
+  function updateDateResolution() {
+    const resolution = resolveAnalysisDate(state.selectedSymbol, state.requestedDate);
+    state.dateResolution = resolution;
+    state.resolvedDate = resolution.resolvedDate;
+    state.requestedDate = resolution.requestedDate || state.requestedDate || resolution.resolvedDate;
+    return resolution;
+  }
+
+  function resolveAnalysisDate(symbol, requestedDate) {
+    const rows = scoredRowsForSymbol(symbol);
+    const fallbackRequest = sanitizeDate(requestedDate) || rows[rows.length - 1]?.date || null;
+    if (!rows.length) {
+      return {
+        requestedDate: fallbackRequest,
+        resolvedDate: null,
+        row: null,
+        status: 'no-data',
+        label: 'No scored data',
+        message: `${symbol}에 대해 계산 가능한 scored trading day가 없습니다.`,
+      };
+    }
+    const requested = fallbackRequest || rows[rows.length - 1].date;
+    let row = null;
+    for (let index = rows.length - 1; index >= 0; index -= 1) {
+      if (rows[index].date <= requested) {
+        row = rows[index];
+        break;
+      }
+    }
+    let status = 'exact';
+    if (!row) {
+      row = rows[0];
+      status = 'earliest';
+    } else if (row.date !== requested) {
+      status = requested > rows[rows.length - 1].date ? 'future-or-unscored' : 'previous-trading-day';
+    } else if (!state.datePinned && row.date === rows[rows.length - 1].date) {
+      status = 'latest';
+    }
+    const label = status === 'latest' ? 'Latest scored day'
+      : status === 'exact' ? 'Exact scored day'
+        : status === 'earliest' ? 'Earliest available scored day'
+          : 'Nearest previous scored day';
+    const message = status === 'latest' ? `${symbol} 최신 scored trading day ${formatDate(row.date)} 기준입니다.`
+      : status === 'exact' ? `${symbol} ${formatDate(row.date)} 기준으로 분석합니다.`
+        : status === 'earliest' ? `${formatDate(requested)} 이전 scored day가 없어 가장 이른 ${formatDate(row.date)}로 표시합니다.`
+          : `${formatDate(requested)}는 휴장일·미채점일·미래일일 수 있어 직전 scored trading day ${formatDate(row.date)}로 해석했습니다.`;
+    return { requestedDate: requested, resolvedDate: row.date, row, status, label, message };
+  }
+
+  function sanitizeDate(value) {
+    const text = String(value || '').slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : null;
+  }
+
+  function hasAsset(symbol) {
+    return Boolean(state.assetDaily?.rowsBySymbol?.[symbol] || state.assetSummary?.bySymbol?.[symbol] || state.assetUniverse?.assets?.some((asset) => asset.symbol === symbol));
+  }
+
+  function scoredRowsForSymbol(symbol) {
+    const rows = state.assetDaily?.rowsBySymbol?.[symbol] || [];
+    const scored = rows.filter((row) => finite(row.close) && finite(row.top_risk_score));
+    return scored.length ? scored : rows.filter((row) => finite(row.close));
+  }
+
+  function latestScoredDate(symbol) {
+    const rows = scoredRowsForSymbol(symbol);
+    return rows[rows.length - 1]?.date || null;
+  }
+
+  function selectedResolvedRow() {
+    return state.dateResolution?.row || resolveAnalysisDate(state.selectedSymbol, state.requestedDate).row;
+  }
+
+  function matrixRowsForDate() {
+    const assets = state.assetSummary?.assets || state.assetUniverse?.assets || [];
+    if (!assets.length) return state.assetSummary?.matrix || [];
+    const latestMatrix = new Map((state.assetSummary?.matrix || []).map((row) => [row.symbol, row]));
+    return assets.map((assetMeta) => {
+      const asset = state.assetSummary?.bySymbol?.[assetMeta.symbol] || assetMeta;
+      const resolution = resolveAnalysisDate(assetMeta.symbol, state.requestedDate);
+      if (!resolution.row) return latestMatrix.get(assetMeta.symbol) || { symbol: assetMeta.symbol, name: assetMeta.name, type: assetMeta.type };
+      const current = currentFromRow(resolution.row, asset);
+      const validation = asset?.economicValidation || {};
+      const quality = asset?.dataQuality || {};
+      return {
+        symbol: assetMeta.symbol,
+        name: current.name || assetMeta.name,
+        type: current.type || assetMeta.type,
+        group: current.group || assetMeta.group,
+        latest: current.close,
+        rawLatest: current.rawClose,
+        scoreCurrency: current.scoreCurrency,
+        currency: current.currency,
+        date: current.date,
+        dateLabel: `${formatDate(current.date)} · ${resolution.status === 'exact' || resolution.status === 'latest' ? resolution.label : 'resolved'}`,
+        oneDayReturn: current.oneDayReturn,
+        ohScore: current.ohScore,
+        rfScore: current.rfScore,
+        topRiskScore: current.topRiskScore,
+        regime: current.regime,
+        confirmed: current.confirmation,
+        sectorContext: current.sectorContextActive,
+        sectorContextStatus: current.sectorContextStatus,
+        sectorContextAsOf: current.sectorContextAsOf,
+        sectorContextLagDays: current.sectorContextLagDays,
+        effectiveSectorContextSource: current.effectiveSectorContextSource,
+        canonicalSectorContextStatus: current.canonicalSectorContextStatus,
+        sectorProxy: current.sectorProxy,
+        benchmarkProxyRisk: current.benchmarkProxyRisk,
+        actionable: current.assetActionableSignal,
+        relativeStrength: current.relativeStrengthStatus || '-',
+        analysisBenchmark: current.analysisBenchmark,
+        officialBenchmark: current.officialBenchmark,
+        dataStatus: asset?.dataStatus?.status || quality.level || latestMatrix.get(assetMeta.symbol)?.dataStatus,
+        dataQuality: quality.level || latestMatrix.get(assetMeta.symbol)?.dataQuality,
+        dataProvider: quality.source || asset?.dataStatus?.source || latestMatrix.get(assetMeta.symbol)?.dataProvider,
+        confidence: asset?.confidence?.level || latestMatrix.get(assetMeta.symbol)?.confidence,
+        economicValidationStatus: validation.status || latestMatrix.get(assetMeta.symbol)?.economicValidationStatus,
+        validationScore: validation.validationScore,
+        warnings: asset?.warnings || [],
+      };
+    });
+  }
+
+  function currentFromRow(row, asset = {}) {
+    const symbol = row.symbol || state.selectedSymbol;
+    const isSox = symbol === 'SOX';
+    const action = actionFromScores(row);
+    const current = asset?.current || {};
+    const sectorProxy = sectorProxyFromRow(row, current.sectorProxy);
+    const benchmarkProxyRisk = benchmarkProxyFromRow(row, asset, sectorProxy);
+    const effectiveStatus = row.effective_sector_context_source === 'SOXQ' ? 'proxy' : (row.canonical_sector_context_status || row.sector_context_status);
+    return {
+      symbol,
+      name: asset?.name || current.name || symbol,
+      type: asset?.type || current.type || (isSox ? 'Sector' : 'Asset'),
+      group: asset?.group || current.group,
+      date: row.date,
+      displayDate: row.date,
+      latestScoredDate: row.date,
+      scoreModel: isSox ? 'sox_canonical' : 'asset_vol_relative',
+      scoreModelLabel: isSox ? 'SOX canonical sector risk model' : 'Asset-specific volatility-adjusted relative-strength model',
+      close: row.close,
+      rawClose: row.raw_close ?? row.rawClose ?? row.close,
+      currency: current.currency || asset?.currency || row.score_currency || 'USD',
+      scoreCurrency: row.score_currency || current.scoreCurrency || 'USD',
+      oneDayReturn: row.ret_1,
+      ohScore: row.oh_score,
+      rfScore: row.rf_score,
+      topRiskScore: row.top_risk_score,
+      regime: row.regime || action.regime,
+      confirmation: isSox ? Boolean(row.confirmed_top_risk) : Boolean(row.asset_confirmed_risk),
+      assetConfirmedRisk: isSox ? Boolean(row.confirmed_top_risk) : Boolean(row.asset_confirmed_risk),
+      assetActionableSignal: isSox ? Boolean(row.confirmed_top_risk) : Boolean(row.asset_actionable_signal),
+      sectorContextActive: Boolean(row.effective_sector_context_active ?? row.sector_context_active ?? row.canonical_sector_context_active),
+      canonicalSectorContextActive: Boolean(row.canonical_sector_context_active),
+      canonicalSectorContextAsOf: row.canonical_sector_context_as_of,
+      canonicalSectorContextStatus: row.canonical_sector_context_status,
+      canonicalSectorContextLagDays: row.canonical_sector_context_lag_days ?? current.canonicalSectorContextLagDays,
+      effectiveSectorContextActive: Boolean(row.effective_sector_context_active ?? row.sector_context_active),
+      effectiveSectorContextSource: row.effective_sector_context_source || 'SOX',
+      effectiveSectorContextAsOf: row.effective_sector_context_as_of || row.sector_context_as_of,
+      effectiveSectorContextStatus: effectiveStatus,
+      effectiveSectorContextLagDays: row.sector_context_lag_days,
+      sectorProxy,
+      benchmarkProxyRisk,
+      actionLevel: action.level,
+      actionLabel: action.label,
+      actionText: action.text,
+      relativeStrength: row.relative_strength,
+      relativeStrengthStatus: row.relative_strength_status || (isSox ? 'sector baseline' : '-'),
+      relativeStrengthBasis: current.relativeStrengthBasis || asset?.relativeStrengthBasis,
+      relZ20: row.rel_z20,
+      benchmarkSymbol: row.benchmark_symbol || current.benchmarkSymbol || asset?.benchmark,
+      benchmarkClose: current.benchmarkClose,
+      benchmarkAsOf: row.benchmark_as_of || current.benchmarkAsOf,
+      analysisBenchmark: asset?.analysisBenchmark || current.analysisBenchmark,
+      officialBenchmark: asset?.officialBenchmark || current.officialBenchmark,
+      fxUsdKrw: current.fxUsdKrw,
+      currencyWarning: current.currencyWarning,
+      sectorContextAsOf: row.sector_context_as_of || row.effective_sector_context_as_of,
+      sectorContextLagDays: row.sector_context_lag_days,
+      sectorContextStatus: effectiveStatus || row.sector_context_status,
+      sectorContextWarning: current.sectorContextWarning,
+      rawSectorContextDate: current.rawSectorContextDate,
+      rawSectorContextScored: current.rawSectorContextScored,
+      vixClose: row.vix_close,
+      vixRising: Boolean(row.vix_rising),
+      vxnClose: row.vxn_close,
+      vxnRising: Boolean(row.vxn_rising),
+      soxOhScore: current.soxOhScore,
+      soxRfScore: current.soxRfScore,
+      soxTopRiskScore: current.soxTopRiskScore,
+      soxConfirmedTopRisk: Boolean(row.signal_sox_confirmed_top_risk),
+    };
+  }
+
+  function actionFromScores(row) {
+    if (row.confirmed_top_risk || row.asset_confirmed_risk) {
+      return {
+        level: 'confirmed-red',
+        label: 'Confirmed Red',
+        regime: row.regime || 'Confirmed Risk',
+        text: '선택 기준일의 leading setup이 rollover/volatility/relative confirmation과 결합된 risk overlay 상태입니다.',
+      };
+    }
+    const top = Number(row.top_risk_score);
+    if (top >= 5) return { level: 'red-zone', label: 'Red Zone', regime: row.regime || 'Red Zone', text: '고점권 과열 또는 반등 실패 setup이 강하게 누적된 상태입니다.' };
+    if (top >= 4) return { level: 'high-risk', label: 'High Risk', regime: row.regime || 'High Risk', text: 'overweight 일부 축소 또는 hedge 준비를 검토할 수 있는 risk overlay 상태입니다.' };
+    if (top >= 3) return { level: 'watch', label: 'Watch', regime: row.regime || 'Watch', text: '신규 추격매수 억제와 trailing stop 점검이 필요한 관찰 구간입니다.' };
+    return { level: 'normal', label: 'Normal', regime: row.regime || 'Normal', text: '일반 포지션 유지 관점의 risk overlay 상태입니다.' };
+  }
+
+  function sectorProxyFromRow(row, fallback = {}) {
+    const hasProxy = row.sector_proxy_symbol && finite(row.sector_proxy_top_risk_score);
+    if (!hasProxy) return fallback?.available !== undefined ? fallback : {
+      symbol: row.sector_proxy_symbol || 'SOXQ',
+      available: false,
+      status: row.symbol === 'SOX' ? 'not_applicable_for_canonical_sox' : 'unavailable',
+      asOf: null,
+      isSelf: false,
+      ohScore: null,
+      rfScore: null,
+      topRiskScore: null,
+      confirmedRisk: false,
+      actionableSignal: false,
+      contextActive: false,
+    };
+    return {
+      symbol: row.sector_proxy_symbol,
+      available: true,
+      status: row.sector_proxy_as_of === row.date ? 'same_day' : 'available',
+      asOf: row.sector_proxy_as_of,
+      isSelf: row.symbol === row.sector_proxy_symbol,
+      ohScore: null,
+      rfScore: null,
+      topRiskScore: row.sector_proxy_top_risk_score,
+      confirmedRisk: Boolean(row.signal_sox_confirmed_top_risk),
+      actionableSignal: Boolean(row.asset_actionable_signal),
+      contextActive: Boolean(row.sector_proxy_context_active),
+    };
+  }
+
+  function benchmarkProxyFromRow(row, asset = {}, sectorProxy = {}) {
+    const currentProxy = asset?.current?.benchmarkProxyRisk || {};
+    const official = asset?.officialBenchmark || asset?.current?.officialBenchmark || {};
+    const analysis = asset?.analysisBenchmark || asset?.current?.analysisBenchmark || {};
+    const symbol = row.symbol || state.selectedSymbol;
+    const enabled = currentProxy.enabled || (symbol !== 'SOX' && (official.symbol === 'SOX' || analysis.symbol === 'SOX' || row.benchmark_symbol === 'SOX'));
+    if (!enabled) return { enabled: false };
+    const local = finite(row.top_risk_score) ? Number(row.top_risk_score) : null;
+    const proxy = finite(row.sector_proxy_top_risk_score) ? Number(row.sector_proxy_top_risk_score) : null;
+    const combined = Math.max(...[local, proxy].filter((value) => Number.isFinite(value)));
+    return {
+      enabled: true,
+      sourceSymbol: symbol,
+      officialBenchmarkSymbol: official.symbol,
+      officialBenchmarkName: official.name,
+      analysisReferenceSymbol: analysis.symbol || row.benchmark_symbol,
+      analysisReferenceRole: analysis.role,
+      overlayBasis: currentProxy.overlayBasis || (official.symbol === 'SOX' ? 'official_sox_tracking' : 'analysis_reference'),
+      localAssetTopRiskScore: local,
+      canonicalSoxTopRiskScore: null,
+      staleCanonicalSoxTopRiskScore: currentProxy.staleCanonicalSoxTopRiskScore,
+      soxqProxyTopRiskScore: proxy,
+      combinedBenchmarkOverlayScore: Number.isFinite(combined) ? combined : null,
+      primaryDriver: Number.isFinite(proxy) && proxy > (local ?? -Infinity) ? 'soxqProxyTopRiskScore' : 'localAssetTopRiskScore',
+      localVsProxyScoreGap: Number.isFinite(local) && Number.isFinite(proxy) ? local - proxy : null,
+      canonicalSoxIncludedInOverlay: false,
+      interpretation: currentProxy.interpretation || 'Selected-date benchmark overlay combines the local asset score with same-day SOXQ proxy context when canonical SOX is stale.',
+      sectorProxyStatus: sectorProxy.status,
+    };
+  }
+
+  function buildFactorsForRow(row, rows) {
+    const isSox = (row.symbol || state.selectedSymbol) === 'SOX';
+    const metrics = rollingMetrics(row, rows);
+    if (isSox) {
+      return [
+        factorRow('z20_gt_1_5', row.z20, 'z20 > 1.5', row.z20 > 1.5, 'OH', '20D 평균 대비 통계적 과열'),
+        factorRow('rsi5_gt_70', row.rsi5, 'RSI5 > 70', row.rsi5 > 70, 'OH', '단기 과매수'),
+        factorRow('roc20_gt_10', metrics.roc20, 'ROC20 > 10%', metrics.roc20 > 0.10, 'OH', '1개월 강한 momentum'),
+        factorRow('gap20_gt_4', metrics.gap20, 'gap20 > 4%', metrics.gap20 > 0.04, 'OH', '20D 추세선 대비 유의미한 이격'),
+        factorRow('near_high20', row.close, 'C >= 99.5% of High20', finite(metrics.high20) && row.close >= 0.995 * metrics.high20, 'OH', '최근 고점권에서 rally 진행'),
+        factorRow('prior_damage', metrics.drawdown50, 'C < MA50 OR C <= 95% High50', row.close < row.ma50 || (finite(metrics.high50) && row.close <= 0.95 * metrics.high50), 'RF', '중기 추세 훼손 또는 50D 고점 대비 유의미한 하락'),
+        factorRow('rebound_from_low', metrics.rebound20, 'C >= 105% Low20', finite(metrics.low20) && row.close >= 1.05 * metrics.low20, 'RF', '20D 저점 대비 반등'),
+        factorRow('ma_resistance', metrics.maDistance, 'within 3% of MA20/MA50 and not > 102% above', metrics.maResistance, 'RF', 'MA20/MA50 저항권까지 반등했으나 명확한 안착 전'),
+        factorRow('weak_momentum', metrics.roc20, 'ROC20 <= 3% OR MA20 slope5 < 0', (finite(metrics.roc20) && metrics.roc20 <= 0.03) || (finite(metrics.ma20Slope5) && metrics.ma20Slope5 < 0), 'RF', '20D momentum 약화 또는 MA20 하락'),
+        factorRow('vix_not_low', row.vix_close, 'VIX >= 16 OR VIX > VIX MA20', finite(row.vix_close) && (row.vix_close >= 16 || (finite(row.vix_ma20) && row.vix_close > row.vix_ma20)), 'RF', '변동성 regime이 아직 안정되지 않음'),
+        factorRow('confirmed_top_risk', row.confirmed_top_risk ? 1 : 0, 'recent setup + rollover/down day/VIX confirmation', Boolean(row.confirmed_top_risk), 'Confirmation', 'Leading setup이 가격 또는 변동성 확인 신호와 결합'),
+      ];
+    }
+    return [
+      factorRow('z20_gt_1_5', row.z20, 'z20 > 1.5', row.z20 > 1.5, 'OH', '자산 자체 20D 평균 대비 통계적 과열'),
+      factorRow('rsi5_gt_70', row.rsi5, 'RSI5 > 70', row.rsi5 > 70, 'OH', '단기 과매수'),
+      factorRow('roc20z_gt_1_25', row.roc20z, 'ROC20Z > 1.25', row.roc20z > 1.25, 'OH', '20D 상승률을 해당 자산 변동성으로 표준화한 momentum 과열'),
+      factorRow('near_high20', row.close, 'P >= 99.5% of High20', finite(metrics.high20) && row.close >= 0.995 * metrics.high20, 'OH', '최근 고점권에서 rally 진행'),
+      factorRow('relz20_gt_1', row.rel_z20, 'RelZ20 > 1.0', row.rel_z20 > 1.0, 'OH', '섹터/벤치마크 대비 crowded outperformance'),
+      factorRow('prior_damage', metrics.dd50z, 'P < MA50 OR DD50Z < -1.0', row.close < row.ma50 || metrics.dd50z < -1.0, 'RF', '추세 훼손 또는 변동성 대비 의미 있는 고점 대비 하락'),
+      factorRow('rebound_from_low', metrics.rebound20z, 'Rebound20Z > 0.75', metrics.rebound20z > 0.75, 'RF', '하락 후 변동성 대비 충분한 반등'),
+      factorRow('ma_resistance', metrics.maDistance, 'near MA20/MA50 and not clearly above', metrics.maResistance, 'RF', 'MA20/MA50 저항권 근처의 lower-high 위험'),
+      factorRow('weak_momentum', row.roc20z, 'ROC20Z < 0.5 OR MA20 slope5 < 0', (finite(row.roc20z) && row.roc20z < 0.5) || (finite(metrics.ma20Slope5) && metrics.ma20Slope5 < 0), 'RF', '변동성 대비 momentum 약화 또는 MA20 하락'),
+      factorRow('relative_weakness', metrics.rsSlope5, 'RS < RS MA20 OR RS slope5 < 0', (finite(row.relative_strength) && finite(row.rs_ma20) && row.relative_strength < row.rs_ma20) || (finite(metrics.rsSlope5) && metrics.rsSlope5 < 0), 'RF', '섹터 대비 상대강도 회복 실패'),
+      factorRow('asset_confirmed_risk', row.asset_confirmed_risk ? 1 : 0, 'recent setup + MA5/large down/RS rollover', Boolean(row.asset_confirmed_risk), 'Confirmation', '자산 자체 차트가 꺾인 확인 신호'),
+      factorRow('sector_context_active', row.effective_sector_context_active ? 1 : 0, 'SOX/OH/RF/VIX/VXN or SOXQ proxy context active', Boolean(row.effective_sector_context_active), 'Sector', '섹터 context가 동시에 악화되는지 확인'),
+      factorRow('asset_actionable_signal', row.asset_actionable_signal ? 1 : 0, 'confirmed risk AND sector context', Boolean(row.asset_actionable_signal), 'Confirmation', '자산 risk와 섹터 context가 동시에 악화된 risk overlay'),
+    ];
+  }
+
+  function factorRow(factor, currentValue, threshold, signal, model, interpretation) {
+    return { factor, currentValue, threshold, signal: Boolean(signal), model, interpretation };
+  }
+
+  function rollingMetrics(row, rows) {
+    const index = rows.findIndex((item) => item.date === row.date);
+    const end = index >= 0 ? index : rows.length - 1;
+    const slice = (days) => rows.slice(Math.max(0, end - days + 1), end + 1).filter((item) => finite(item.close));
+    const closes20 = slice(20).map((item) => Number(item.close));
+    const closes50 = slice(50).map((item) => Number(item.close));
+    const high20 = closes20.length ? Math.max(...closes20) : null;
+    const low20 = closes20.length ? Math.min(...closes20) : null;
+    const high50 = closes50.length ? Math.max(...closes50) : null;
+    const lag20 = rows[end - 20];
+    const lag5 = rows[end - 5];
+    const roc20 = lag20 && finite(lag20.close) ? row.close / lag20.close - 1 : null;
+    const gap20 = finite(row.ma20) ? row.close / row.ma20 - 1 : null;
+    const rebound20 = finite(low20) ? row.close / low20 - 1 : null;
+    const drawdown50 = finite(high50) ? row.close / high50 - 1 : null;
+    const ma20Slope5 = lag5 && finite(lag5.ma20) && finite(row.ma20) ? row.ma20 / lag5.ma20 - 1 : null;
+    const rsSlope5 = lag5 && finite(lag5.rs_ma20) && finite(row.rs_ma20) ? row.rs_ma20 / lag5.rs_ma20 - 1 : null;
+    const ma20Distance = finite(row.ma20) ? Math.abs(row.close / row.ma20 - 1) : null;
+    const ma50Distance = finite(row.ma50) ? Math.abs(row.close / row.ma50 - 1) : null;
+    const maDistance = Math.min(...[ma20Distance, ma50Distance].filter((value) => Number.isFinite(value)));
+    const maResistance = Number.isFinite(maDistance) && maDistance <= 0.03 && finite(row.ma20) && finite(row.ma50) && row.close <= 1.02 * Math.max(row.ma20, row.ma50);
+    const vol20 = finite(row.rv20) ? Number(row.rv20) : null;
+    const dd50z = finite(high50) && finite(vol20) && vol20 > 0 ? Math.log(row.close / high50) / (vol20 * Math.sqrt(50)) : null;
+    const rebound20z = finite(low20) && finite(vol20) && vol20 > 0 ? Math.log(row.close / low20) / (vol20 * Math.sqrt(20)) : null;
+    return { high20, low20, high50, roc20, gap20, rebound20, drawdown50, ma20Slope5, rsSlope5, maDistance, maResistance, dd50z, rebound20z };
+  }
+
+  function historyFromRow(row, rows) {
+    const outcome = forwardOutcome(row, selectedRows());
+    return {
+      date: row.date,
+      close: row.close,
+      ohScore: row.oh_score,
+      rfScore: row.rf_score,
+      topRiskScore: row.top_risk_score,
+      confirmation: Boolean(row.asset_confirmed_risk || row.confirmed_top_risk),
+      actionable: row.symbol === 'SOX' ? Boolean(row.confirmed_top_risk) : Boolean(row.asset_actionable_signal),
+      fwdMin5: outcome.fwdMin5,
+      fwdMax5: outcome.fwdMax5,
+      fwdRet5: outcome.fwdRet5,
+      downsideHit: outcome.downsideHit,
+      strictTopHit: outcome.strictTopHit,
+      volAdjDownsideHit: outcome.volAdjDownsideHit,
+      volAdjStrictTopHit: outcome.volAdjStrictTopHit,
+      regime: row.regime,
+    };
+  }
+
+  function forwardOutcome(row, rows) {
+    const index = rows.findIndex((item) => item.date === row.date);
+    const future = index >= 0 ? rows.slice(index + 1, index + 6).filter((item) => finite(item.close)) : [];
+    if (future.length < 5 || !finite(row.close)) {
+      return { pending: true, fwdMin5: null, fwdMax5: null, fwdRet5: null, downsideHit: null, strictTopHit: null, volAdjDownsideHit: null, volAdjStrictTopHit: null };
+    }
+    const returns = future.map((item) => item.close / row.close - 1);
+    const fwdMin5 = Math.min(...returns);
+    const fwdMax5 = Math.max(...returns);
+    const fwdRet5 = returns[4];
+    const downsideHit = fwdMin5 <= -0.05;
+    const strictTopHit = fwdMax5 <= 0 && downsideHit;
+    const volThreshold = finite(row.rv20) ? Number(row.rv20) * Math.sqrt(5) : null;
+    const volAdjDownsideHit = finite(volThreshold) ? fwdMin5 <= -1.5 * volThreshold : null;
+    const volAdjStrictTopHit = finite(volThreshold) ? fwdMax5 <= 0.5 * volThreshold && fwdMin5 <= -1.5 * volThreshold : null;
+    return { pending: false, fwdMin5, fwdMax5, fwdRet5, downsideHit, strictTopHit, volAdjDownsideHit, volAdjStrictTopHit };
+  }
+
+  function selectedOutcomeCard(isSox) {
+    const row = selectedResolvedRow();
+    if (!row) return '';
+    const outcome = forwardOutcome(row, selectedRows());
+    const ruleState = row.top_risk_score >= 4 || row.asset_confirmed_risk || row.confirmed_top_risk ? 'signal on' : 'no high-risk signal';
+    if (outcome.pending) {
+      return `<article class="mini-card"><span>Selected-date outcome</span><strong>${escapeHtml(formatDate(row.date))}</strong><small>${escapeHtml(ruleState)} · forward 5D label pending because fewer than 5 later trading days are available.</small></article>`;
+    }
+    return `<article class="mini-card"><span>Selected-date outcome</span><strong>${formatPercent(outcome.fwdMin5, 2)} min</strong><small>${escapeHtml(formatDate(row.date))} · ${escapeHtml(ruleState)} · fwd ret ${formatPercent(outcome.fwdRet5, 2)} · ${isSox ? `abs downside ${yesNo(outcome.downsideHit)}` : `vol-adj downside ${yesNo(outcome.volAdjDownsideHit)}`}</small></article>`;
   }
 
   function groupAssets(assets) {
@@ -594,7 +1095,7 @@
 
   function formatFactorValue(value, factor) {
     if (!finite(value)) return '-';
-    if (/rsi|score|z20|z$/i.test(factor)) return formatNumber(value);
+    if (/rsi|score|roc20z|dd50z|rebound20z|relz20|z20|z$/i.test(factor)) return formatNumber(value);
     if (/gap|roc|drawdown|rebound|ret|slope|rv|dd/i.test(factor)) return formatPercent(value, 2);
     return formatNumber(value);
   }
@@ -636,7 +1137,7 @@
   }
 
   function finite(value) {
-    return Number.isFinite(Number(value));
+    return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
   }
 
   function escapeHtml(value) {
@@ -648,6 +1149,6 @@
   }
 
   if (typeof window !== 'undefined') {
-    window.__riskScoreApp = { renderSummary, renderFactors, renderBacktest, FILES, selectAsset };
+    window.__riskScoreApp = { renderSummary, renderFactors, renderBacktest, FILES, selectAsset, selectAnalysisDate, resolveAnalysisDate, syncUrlState };
   }
 })();

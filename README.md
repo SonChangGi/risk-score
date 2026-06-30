@@ -14,6 +14,7 @@ SOX Index 단기 고점 위험을 뉴스가 아닌 가격·추세·변동성 기
 - **Economic validation**: 개별 자산 primary rule의 event-level volatility-adjusted downside lift가 base rate를 이기지 못하면 confidence를 낮추고 warning을 표시합니다. 추가로 full-period/YTD validation score, best/weak rules, SOXQ proxy-context rules, score-bucket diagnostics, cross-asset validation을 노출해 신호가 실제로 경제적으로 의미 있는지 확인합니다.
 - **Data quality**: manual CSV override, Yahoo chart primary, optional Financial Modeling Prep fallback(`FMP_API_KEY`)의 provider attempts와 latest lag를 JSON/UI에 표시합니다.
 - **Universe matrix**: SOX, MU, INTC, MRVL, WDC, SNDK, STX, 005930.KS, 000660.KS, SOXX, SOXQ, SMH, XSD, PSI, DRAM을 한눈에 비교합니다.
+- **Selectable analysis date**: 원하는 기준일을 고르면 해당 자산의 직전 scored trading day로 해석해 요약, factor, matrix, chart, signal history, selected-date outcome을 as-of 관점으로 표시합니다. URL `?symbol=SOXQ&date=YYYY-MM-DD`로 공유할 수 있습니다.
 
 본 페이지는 투자 조언이 아니라 개인 리서치용 risk overlay입니다.
 
@@ -51,6 +52,16 @@ python3 -m http.server 8080
 ```
 
 The page is subdirectory-safe and can also be served under `/quant-dashboard/risk-score/`.
+
+### Date selection
+
+기본값은 선택 자산의 최신 scored trading day입니다. 사용자가 선택한 날짜가 휴장일, 미래일, 또는 FRED/VIX 지연으로 score가 계산되지 않은 날이면 앱은 직전 scored trading day로 자동 해석하고 상단 상태/날짜 selector에 resolution note를 표시합니다.
+
+```text
+/?symbol=SOXQ&date=2026-06-15
+```
+
+요약·factor·차트는 선택 기준일까지의 데이터만 사용합니다. Backtest selected-date outcome과 signal-history forward 5D 컬럼은 모델 입력이 아니라 사후 성과 설명용이며, 선택 날짜 이후 5거래일이 부족하면 pending으로 표시됩니다.
 
 ## Data update
 

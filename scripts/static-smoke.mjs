@@ -47,9 +47,11 @@ try {
   if (!rootHtml.includes('SOX & Asset Top Risk Score')) throw new Error('root index missing multi-asset title');
   if (!nestedHtml.includes('Back to Quant Dashboard')) throw new Error('nested route missing back link');
   if (!nestedHtml.includes('asset-select') || !nestedHtml.includes('asset-matrix-body')) throw new Error('nested route missing asset UI');
+  if (!nestedHtml.includes('analysis-date-input') || !nestedHtml.includes('latest-date-button')) throw new Error('nested route missing analysis date UI');
   if (!app.includes("DATA_BASE = 'data/risk-score/'")) throw new Error('relative data path missing');
+  if (!app.includes('resolveAnalysisDate') || !app.includes('selectAnalysisDate') || !app.includes('syncUrlState') || !app.includes('Nearest previous scored day')) throw new Error('analysis-date as-of URL/state logic missing');
   if (app.includes('query1.finance.yahoo') || app.includes('fred.stlouisfed.org')) throw new Error('browser app contains live finance endpoint');
-  if (!css.includes('.asset-picker') || !css.includes('@media (max-width: 760px)')) throw new Error('responsive asset CSS missing');
+  if (!css.includes('.asset-picker') || !css.includes('.analysis-date-controls') || !css.includes('@media (max-width: 760px)')) throw new Error('responsive asset/date CSS missing');
   if (summary.contract !== 'quant-research-summary' || summary.projectId !== 'risk-score') throw new Error('summary contract mismatch');
   if (!summary.primaryEntities?.[0]?.metrics?.topRiskScore && summary.primaryEntities?.[0]?.metrics?.topRiskScore !== 0) throw new Error('top risk metric missing');
   const required = ['MU', 'INTC', 'MRVL', 'WDC', 'SNDK', 'STX', '005930.KS', '000660.KS', 'SOXX', 'SOXQ', 'SMH', 'XSD', 'PSI', 'DRAM'];

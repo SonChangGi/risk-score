@@ -24,6 +24,7 @@
 ## Product goals
 - Goals:
   - Show current SOX and selected semiconductor-related asset short-term top risk from price/trend/volatility/relative strength only.
+  - Let the user choose an analysis date and render a historical as-of view without using future data for signal calculation.
   - Preserve economic interpretation by separating Overheated-top and Rebound-failure models.
   - Make confirmation filters and historical event-level hit rates visible before action copy.
   - Use SOXQ as the transparent same-day SOX-tracking ETF proxy when canonical SOX/VIX context is stale, while preserving canonical SOX formulas and source labels.
@@ -50,9 +51,9 @@
 - Core routes/screens: single static page deployable at repo root or subdirectory `/quant-dashboard/risk-score/` with relative assets/data.
 - Content hierarchy:
   1. Header with latest date and source/freshness status.
-  2. Asset selector and grouped universe chips.
-  3. Asset risk matrix.
-  4. Current risk summary cards and action overlay language.
+  2. Asset/date selector and grouped universe chips.
+  3. Asset risk matrix resolved to the selected analysis date.
+  4. Selected-date risk summary cards and action overlay language.
   5. Factor breakdown table with thresholds and model ownership.
   6. Price/score/relative-strength/VIX-VXN charts with semantic markers.
   7. Backtest toggles: event-level first, daily secondary, vol-adjusted label primary for assets, with YTD diagnostics and SOXQ proxy-context rules visible.
@@ -78,7 +79,7 @@
 - Existing components to reuse:
   - Quant Dashboard/SOX-style hero, top nav, metric cards, `panel`, `table-wrap`, `status-chip`, `score-pill`, source/caveat panels.
 - New/changed components:
-  - Asset selector, grouped universe chips, and clickable risk matrix.
+  - Asset selector, analysis-date picker with latest reset, grouped universe chips, and clickable risk matrix.
   - Factor breakdown table with on/off badges and economic interpretation.
   - Lightweight SVG chart renderer for price/score/VIX with markers and `<title>` tooltips.
   - Backtest mode toggles for event-level vs daily stats and absolute vs volatility-adjusted labels.
@@ -105,6 +106,7 @@
 - Empty: explicit generated-data missing message and script command.
 - Error: show failed static JSON and keep methodology visible.
 - Success: current scores, source status, and generated timestamp are visible.
+- Date resolution: selected date, requested date, and nearest previous scored trading day note are visible when they differ.
 - Disabled: optional panels explain manual/adapter requirements.
 - Offline/slow network: static page still loads shell; JSON fetch failure is explicit.
 
@@ -127,6 +129,7 @@
 - Period splits include full, recent 3 years, recent 1 year, YTD, and ex-2026; 2026/YTD cannot drive threshold changes.
 - YTD diagnostics must separately show raw top-risk, confirmed/actionable, and SOXQ proxy-context rule quality. YTD can cap explanatory confidence/copy, but cannot refit thresholds.
 - Threshold sensitivity is a diagnostic table only and cannot feed model defaults.
+- Analysis-date views must resolve to scored trading days only. If the requested date is not scored, use the nearest previous scored trading day and show the resolution note. Charts and factor tables are capped at the resolved date; forward 5D outcomes are labelled as backtest evidence, not signal inputs.
 
 ## Deployment and hub contract decision
 - Public route decision: serve the app from Quant Dashboard's static tree at `risk-score/`, yielding `https://sonchanggi.github.io/quant-dashboard/risk-score/`.
