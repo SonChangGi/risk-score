@@ -52,7 +52,7 @@ try {
   if (!css.includes('.asset-picker') || !css.includes('@media (max-width: 760px)')) throw new Error('responsive asset CSS missing');
   if (summary.contract !== 'quant-research-summary' || summary.projectId !== 'risk-score') throw new Error('summary contract mismatch');
   if (!summary.primaryEntities?.[0]?.metrics?.topRiskScore && summary.primaryEntities?.[0]?.metrics?.topRiskScore !== 0) throw new Error('top risk metric missing');
-  const required = ['MU', 'INTC', 'MRVL', 'WDC', 'SNDK', 'STX', '005930.KS', '000660.KS', 'SOXX', 'SMH', 'XSD', 'PSI', 'DRAM'];
+  const required = ['MU', 'INTC', 'MRVL', 'WDC', 'SNDK', 'STX', '005930.KS', '000660.KS', 'SOXX', 'SOXQ', 'SMH', 'XSD', 'PSI', 'DRAM'];
   const universeSymbols = new Set(assetUniverse.assets?.map((asset) => asset.symbol));
   for (const symbol of required) if (!universeSymbols.has(symbol)) throw new Error(`universe missing ${symbol}`);
   if (assetSummary.contract !== 'asset-risk-summary' || assetSummary.defaultSymbol !== 'SOX') throw new Error('asset summary contract/default mismatch');
@@ -63,6 +63,11 @@ try {
   const soxx = assetSummary.bySymbol?.SOXX;
   if (soxx?.officialBenchmark?.name !== 'NYSE Semiconductor Index') throw new Error('SOXX official benchmark metadata missing or incorrectly labeled');
   if (soxx?.analysisBenchmark?.symbol !== 'SOX') throw new Error('SOXX analysis benchmark reference missing');
+  const soxq = assetSummary.bySymbol?.SOXQ;
+  if (soxq?.officialBenchmark?.name !== 'PHLX Semiconductor Sector Index' || soxq?.officialBenchmark?.symbol !== 'SOX') throw new Error('SOXQ official SOX benchmark metadata missing');
+  if (soxq?.analysisBenchmark?.symbol !== 'SOX') throw new Error('SOXQ analysis benchmark missing');
+  if (!soxq?.economicValidation?.status) throw new Error('SOXQ economic validation status missing');
+  if (!soxq?.dataQuality?.level || !Array.isArray(soxq?.dataQuality?.providerAttempts)) throw new Error('SOXQ data quality/provider attempts missing');
   if (!soxx?.economicValidation?.status) throw new Error('SOXX economic validation status missing');
   if (!Number.isFinite(Number(soxx?.economicValidation?.validationScore))) throw new Error('SOXX validation score missing');
   if (!soxx?.dataQuality?.level || !Array.isArray(soxx?.dataQuality?.providerAttempts)) throw new Error('SOXX data quality/provider attempts missing');

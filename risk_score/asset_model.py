@@ -109,7 +109,7 @@ def load_universe_config(path: str | Path = DEFAULT_UNIVERSE_PATH) -> Record:
     symbols = [asset['symbol'] for asset in config.get('assets', [])]
     if len(symbols) != len(set(symbols)):
         raise ValueError('asset universe has duplicate symbols')
-    required = {'SOX', 'MU', 'INTC', 'MRVL', 'WDC', 'SNDK', 'STX', '005930.KS', '000660.KS', 'SOXX', 'SMH', 'XSD', 'PSI', 'DRAM'}
+    required = {'SOX', 'MU', 'INTC', 'MRVL', 'WDC', 'SNDK', 'STX', '005930.KS', '000660.KS', 'SOXX', 'SOXQ', 'SMH', 'XSD', 'PSI', 'DRAM'}
     missing = required - set(symbols)
     if missing:
         raise ValueError(f'asset universe missing required symbols: {sorted(missing)}')

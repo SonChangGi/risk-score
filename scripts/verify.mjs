@@ -53,7 +53,7 @@ for (const fn of ['load_universe_config', 'fetch_yahoo_daily_prices', 'fetch_fmp
 for (const marker of ['ROC20Z > 1.25', 'RelZ20 > 1.0', 'SOX_USD_IF_FX_ELSE_KOSPI', 'vol_adj_downside_5d', 'asset_actionable_signal', 'sector_context_active', 'sector_context_as_of', 'relative_weakness_sector_context', 'scoreBuckets', 'crossAssetValidation', 'dataQuality', 'providerAttempts', 'fmp_historical_eod', 'officialBenchmark', 'analysisBenchmark', 'economicValidation']) {
   assert(contains(files.assetModel + files.universe, marker), `asset methodology marker exists: ${marker}`);
 }
-for (const symbol of ['MU', 'INTC', 'MRVL', 'WDC', 'SNDK', 'STX', '005930.KS', '000660.KS', 'SOXX', 'SMH', 'XSD', 'PSI', 'DRAM']) {
+for (const symbol of ['MU', 'INTC', 'MRVL', 'WDC', 'SNDK', 'STX', '005930.KS', '000660.KS', 'SOXX', 'SOXQ', 'SMH', 'XSD', 'PSI', 'DRAM']) {
   assert(contains(files.universe, `"symbol": "${symbol}"`), `universe includes ${symbol}`);
 }
 assert(contains(files.model, "'projectId': 'risk-score'") && contains(files.model, "'contract': 'quant-research-summary'"), 'summary contract export exists');

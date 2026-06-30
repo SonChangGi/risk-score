@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "contract": "asset-universe",
   "projectId": "risk-score",
-  "generatedAt": "2026-06-30T05:05:34Z",
+  "generatedAt": "2026-06-30T05:30:37Z",
   "context": {
     "sox": {
       "seriesId": "NASDAQSOX",
@@ -205,6 +205,29 @@
         "source": "iShares official page",
         "url": "https://www.ishares.com/us/products/239705/ishares-phlx-semiconductor-etf",
         "note": "SOX is retained here as an analysis reference; the ETF official benchmark is not labeled as SOX."
+      }
+    },
+    {
+      "symbol": "SOXQ",
+      "providerSymbol": "SOXQ",
+      "name": "Invesco PHLX Semiconductor ETF",
+      "type": "ETF",
+      "group": "ETFs",
+      "currency": "USD",
+      "source": "yahoo",
+      "benchmark": "SOX",
+      "analysisBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "role": "tracked_index_and_sector_reference",
+        "note": "SOXQ is designed to track the PHLX Semiconductor Sector Index; SOX is both the official benchmark context and the analysis reference."
+      },
+      "officialBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "source": "Invesco official page",
+        "url": "https://www.invesco.com/us/en/financial-products/etfs/invesco-phlx-semiconductor-etf.html",
+        "note": "SOXQ seeks to track the PHLX Semiconductor Sector Index, making it the clean ETF proxy in this dashboard for SOX benchmark-following exposure."
       }
     },
     {

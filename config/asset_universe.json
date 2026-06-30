@@ -206,6 +206,29 @@
       }
     },
     {
+      "symbol": "SOXQ",
+      "providerSymbol": "SOXQ",
+      "name": "Invesco PHLX Semiconductor ETF",
+      "type": "ETF",
+      "group": "ETFs",
+      "currency": "USD",
+      "source": "yahoo",
+      "benchmark": "SOX",
+      "analysisBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "role": "tracked_index_and_sector_reference",
+        "note": "SOXQ is designed to track the PHLX Semiconductor Sector Index; SOX is both the official benchmark context and the analysis reference."
+      },
+      "officialBenchmark": {
+        "symbol": "SOX",
+        "name": "PHLX Semiconductor Sector Index",
+        "source": "Invesco official page",
+        "url": "https://www.invesco.com/us/en/financial-products/etfs/invesco-phlx-semiconductor-etf.html",
+        "note": "SOXQ seeks to track the PHLX Semiconductor Sector Index, making it the clean ETF proxy in this dashboard for SOX benchmark-following exposure."
+      }
+    },
+    {
       "symbol": "SMH",
       "providerSymbol": "SMH",
       "name": "VanEck Semiconductor ETF",

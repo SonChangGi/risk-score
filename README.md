@@ -13,7 +13,7 @@ SOX Index 단기 고점 위험을 뉴스가 아닌 가격·추세·변동성 기
 - **Backtest**: 신호 후 미래 5거래일 absolute downside/strict top과 volatility-adjusted label, daily statistics, 5D cooldown event-level statistics, base-rate lift.
 - **Economic validation**: 개별 자산 primary rule의 event-level volatility-adjusted downside lift가 base rate를 이기지 못하면 confidence를 낮추고 warning을 표시합니다. 추가로 validation score, best/weak rules, score-bucket diagnostics, cross-asset validation을 노출해 신호가 실제로 경제적으로 의미 있는지 확인합니다.
 - **Data quality**: manual CSV override, Yahoo chart primary, optional Financial Modeling Prep fallback(`FMP_API_KEY`)의 provider attempts와 latest lag를 JSON/UI에 표시합니다.
-- **Universe matrix**: SOX, MU, INTC, MRVL, WDC, SNDK, STX, 005930.KS, 000660.KS, SOXX, SMH, XSD, PSI, DRAM을 한눈에 비교합니다.
+- **Universe matrix**: SOX, MU, INTC, MRVL, WDC, SNDK, STX, 005930.KS, 000660.KS, SOXX, SOXQ, SMH, XSD, PSI, DRAM을 한눈에 비교합니다.
 
 본 페이지는 투자 조언이 아니라 개인 리서치용 risk overlay입니다.
 
@@ -34,6 +34,7 @@ Optional/source-note only in v1:
 
 - Nasdaq SOX overview: `https://indexes.nasdaqomx.com/Index/Overview/SOX`
 - iShares SOXX page: `https://www.ishares.com/us/products/239705/ishares-phlx-semiconductor-etf` (ETF official benchmark metadata; SOX remains an analysis reference when configured)
+- Invesco SOXQ page: `https://www.invesco.com/us/en/financial-products/etfs/invesco-phlx-semiconductor-etf.html` (SOXQ official benchmark metadata; PHLX Semiconductor Sector Index/SOX tracking exposure)
 - AAII Sentiment Survey: `https://www.aaii.com/sentimentsurvey/sent_results`
 - CNN Fear & Greed: `https://edition.cnn.com/markets/fear-and-greed`
 - Fundamental/revision data adapters are future 1~3 month cycle-risk panels and are not part of the 1~5D main score.
@@ -208,7 +209,7 @@ vol_adj_strict_top = fwd_max_5 <= 0.5 * RV20 * sqrt(5) AND vol_adj_downside
 - Korean FX mismatch is handled by USDKRW when available; if FX is unavailable, local KOSPI relative strength is shown with warning instead of pretending KRW/SOX comparability.
 - SNDK and DRAM have short standalone histories, so event-level confidence is flagged low until more data accumulates.
 - Public deployment is served from the Quant Dashboard subtree; run the sync command plus `verify_quant_dashboard_sync.py` before publishing to prevent canonical/deploy drift.
-- SOXX and other ETF signals can be economically weaker than SOX despite similar sector exposure because the asset model is volatility/relative-strength adjusted and the ETF official benchmark/exposure may differ from SOX. The dashboard surfaces this through benchmark metadata and validation confidence instead of forcing scores to match.
+- SOXX and other ETF signals can be economically weaker than SOX despite similar sector exposure because the asset model is volatility/relative-strength adjusted and the ETF official benchmark/exposure may differ from SOX. SOXQ is included as the ETF whose official benchmark is the PHLX Semiconductor Sector Index/SOX, but its own price history is still evaluated with the same asset-specific diagnostics. The dashboard surfaces this through benchmark metadata and validation confidence instead of forcing scores to match.
 
 ## Future improvements
 

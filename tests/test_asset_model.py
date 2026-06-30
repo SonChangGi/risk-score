@@ -64,13 +64,16 @@ class AssetModelTests(unittest.TestCase):
     def test_config_universe_contains_required_assets_and_warnings(self):
         config = load_universe_config()
         by_symbol = {asset['symbol']: asset for asset in config['assets']}
-        for symbol in ('MU', 'INTC', 'MRVL', 'WDC', 'SNDK', 'STX', '005930.KS', '000660.KS', 'SOXX', 'SMH', 'XSD', 'PSI', 'DRAM'):
+        for symbol in ('MU', 'INTC', 'MRVL', 'WDC', 'SNDK', 'STX', '005930.KS', '000660.KS', 'SOXX', 'SOXQ', 'SMH', 'XSD', 'PSI', 'DRAM'):
             self.assertIn(symbol, by_symbol)
         self.assertIn('historyWarning', by_symbol['SNDK'])
         self.assertIn('historyWarning', by_symbol['DRAM'])
         self.assertEqual(by_symbol['SOXX']['officialBenchmark']['name'], 'NYSE Semiconductor Index')
         self.assertEqual(by_symbol['SOXX']['analysisBenchmark']['symbol'], 'SOX')
         self.assertIn('analysis reference', by_symbol['SOXX']['analysisBenchmark']['note'])
+        self.assertEqual(by_symbol['SOXQ']['officialBenchmark']['name'], 'PHLX Semiconductor Sector Index')
+        self.assertEqual(by_symbol['SOXQ']['officialBenchmark']['symbol'], 'SOX')
+        self.assertIn('track', by_symbol['SOXQ']['officialBenchmark']['note'].lower())
 
     def test_asset_pipeline_uses_vol_adjusted_scores_and_labels_without_future_tail(self):
         sox, vix = sox_vix_rows()
@@ -216,6 +219,7 @@ class AssetModelTests(unittest.TestCase):
     def test_provider_symbol_policy_supports_fmp_only_for_usd_assets(self):
         self.assertEqual(fmp_symbol_for_asset({'symbol': 'MU', 'providerSymbol': 'MU', 'currency': 'USD'}), 'MU')
         self.assertEqual(fmp_symbol_for_asset({'symbol': 'SOXX', 'providerSymbol': 'SOXX', 'currency': 'USD'}), 'SOXX')
+        self.assertEqual(fmp_symbol_for_asset({'symbol': 'SOXQ', 'providerSymbol': 'SOXQ', 'currency': 'USD'}), 'SOXQ')
         self.assertIsNone(fmp_symbol_for_asset({'symbol': '005930.KS', 'providerSymbol': '005930.KS', 'currency': 'KRW'}))
 
     def test_price_loader_falls_back_to_fmp_when_yahoo_fails(self):

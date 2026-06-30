@@ -2,6 +2,12 @@ name: Refresh SOX/Asset Risk Score Source Data
 
 on:
   workflow_dispatch:
+  schedule:
+    # 08:00 KST Tue-Sat: source-only refresh after the prior U.S. regular session.
+    - cron: "0 23 * * 1-5"
+    # 10:00/12:00 KST Tue-Sat: 2-hour retries for provider/API lag.
+    - cron: "0 1 * * 2-6"
+    - cron: "0 3 * * 2-6"
 
 permissions:
   contents: write
