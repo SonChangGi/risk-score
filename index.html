@@ -6,9 +6,9 @@
   <meta name="description" content="SOX Index와 반도체 개별 종목/ETF 단기 고점 위험을 OH/RF score, sector context, relative strength, backtest로 확인하는 quant risk overlay dashboard" />
   <title>SOX & Asset Top Risk Score</title>
   <link rel="stylesheet" href="assets/styles.css" />
-  <link rel="stylesheet" href="assets/common-ui.css" />
+  <link rel="stylesheet" href="assets/common-ui.css?v=20260701-visual-ralph" />
   <script src="assets/app.js" defer></script>
-  <script src="assets/common-ui.js" defer></script>
+  <script src="assets/common-ui.js?v=20260701-visual-ralph" defer></script>
 </head>
 <body id="top">
   <header class="hero" aria-labelledby="page-title">
@@ -27,9 +27,8 @@
         <p class="eyebrow">Quant-based short-term top-risk overlay</p>
         <h1 id="page-title">SOX & Asset Top Risk Score</h1>
         <p class="hero-copy">
-          뉴스가 아니라 SOX sector context와 개별 종목/ETF의 가격·추세·변동성·relative strength로 단기 고점 위험을 분리 측정합니다.
-          SOX 원본 OH/RF model은 유지하고, 개별 자산에는 volatility-adjusted OH/RF, confirmation, actionable signal, sector-context 날짜 정합성, SOXQ proxy context, 과거 5거래일 backtest를 함께 보여줍니다.
-          원하는 날짜를 선택하면 해당 날짜 기준으로 과거 데이터만 사용한 as-of risk view로 전환합니다.
+          뉴스가 아니라 SOX sector context와 자산별 가격·추세·변동성·relative strength로 단기 고점 위험을 분리해 봅니다.
+          날짜를 선택하면 그 시점까지의 데이터만 사용하는 as-of risk view로 전환합니다.
         </p>
         <div class="hero-actions">
           <a href="#summary" class="primary-button">선택 날짜 리스크 보기</a>
@@ -39,7 +38,7 @@
       <aside class="hero-note" aria-label="데이터 상태">
         <p class="eyebrow">Data Status</p>
         <div id="app-status" class="status-stack" aria-live="polite">정적 JSON을 불러오는 중...</div>
-        <p class="source-note">Core model: FRED NASDAQSOX + VIXCLS. Asset extension uses generated JSON from local FRED/Yahoo/manual adapters; browser does not fetch market providers directly.</p>
+        <p class="source-note">Core model: FRED NASDAQSOX + VIXCLS. Browser reads generated JSON only.</p>
       </aside>
     </div>
   </header>
