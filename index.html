@@ -6,9 +6,9 @@
   <meta name="description" content="SOX Index와 반도체 개별 종목/ETF 단기 고점 위험을 OH/RF score, sector context, relative strength, backtest로 확인하는 quant risk overlay dashboard" />
   <title>SOX & Asset Top Risk Score</title>
   <link rel="stylesheet" href="assets/styles.css" />
-  <link rel="stylesheet" href="assets/common-ui.css?v=20260701-ralph-table-v5d" />
+  <link rel="stylesheet" href="assets/common-ui.css?v=20260702-light-system-v6" />
   <script src="assets/app.js" defer></script>
-  <script src="assets/common-ui.js?v=20260701-fullpage-v4" defer></script>
+  <script src="assets/common-ui.js?v=20260702-light-system-v6" defer></script>
 </head>
 <body id="top">
   <header class="hero" aria-labelledby="page-title">
@@ -27,8 +27,8 @@
         <p class="eyebrow">Quant-based short-term top-risk overlay</p>
         <h1 id="page-title">SOX & Asset Top Risk Score</h1>
         <p class="hero-copy">
-          뉴스가 아니라 SOX sector context와 자산별 가격·추세·변동성·relative strength로 단기 고점 위험을 분리해 봅니다.
-          날짜를 선택하면 그 시점까지의 데이터만 사용하는 as-of risk view로 전환합니다.
+          뉴스가 아니라 SOX context와 자산별 가격·추세·변동성·relative strength로 단기 고점 위험을 분리합니다.
+          선택 날짜 기준 as-of risk view로 바로 확인합니다.
         </p>
         <div class="hero-actions">
           <a href="#summary" class="primary-button">선택 날짜 리스크 보기</a>
@@ -173,7 +173,9 @@
       </div>
     </section>
 
-    <section class="section" id="methodology" aria-labelledby="methodology-title">
+    <details class="section" id="methodology" aria-labelledby="methodology-title">
+      <summary>데이터 출처·계산식·한계</summary>
+      <div class="details-body">
       <div class="section-heading">
         <p class="eyebrow">Data & Methodology</p>
         <h2 id="methodology-title">데이터 출처·계산식·한계</h2>
@@ -191,7 +193,8 @@
         <article><h3>Korea / history caveats</h3><p>한국 종목은 USDKRW로 USD 환산 후 SOX 대비 RS를 계산하고, FX가 없으면 KOSPI local fallback을 warning으로 표시합니다. SNDK/DRAM은 short-history confidence flag를 표시합니다.</p></article>
       </div>
       <div id="source-notes" class="source-list"></div>
-    </section>
+      </div>
+    </details>
   </main>
 
   <footer class="site-footer">
